@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pokémon GO databáze</title>
+<style>
+  :root { --bg:#f4f6fb; --card:#fff; --text:#1f2430; --muted:#667085; --accent:#e3350d; --accent2:#2a75bb; --border:#e2e6ef; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); }
+  header { background:#1f2430; color:#fff; padding:20px 16px; }
+  header h1 { margin:0 0 4px; font-size:26px; }
+  header p { margin:0; color:#c7cede; font-size:14px; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
+  #status { font-size:14px; color:var(--muted); }
+  #status.error { color:#b42318; }
+  .filters { display:flex; flex-wrap:wrap; gap:10px; }
+  .filters input[type="search"] { flex:1 1 220px; padding:10px 12px; font-size:16px; border:1px solid var(--border); border-radius:8px; }
+  .filters select { padding:10px; font-size:15px; border:1px solid var(--border); border-radius:8px; background:#fff; }
+  #count { color:var(--muted); font-size:14px; margin:12px 0 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:12px; margin-top:12px; }
+  .poke-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px; text-align:center; cursor:pointer; }
+  .poke-card:hover { border-color:var(--accent2); box-shadow:0 2px 10px rgba(0,0,0,.08); }
+  .poke-card img { width:96px; height:96px; object-fit:contain; }
+  .poke-card .dex { color:var(--muted); font-size:12px; }
+  .poke-card .name { font-weight:600; font-size:14px; }
+  .poke-card .types { font-size:12px; color:var(--muted); }
+  #loadMore { display:block; margin:16px auto 0; padding:10px 20px; font-size:15px; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; }
+  #detail { display:none; }
+  #detail.visible { display:block; }
+  .detail-head { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+  .detail-head img.artwork { width:200px; height:200px; object-fit:contain; background:#f8f9fc; border-radius:12px; }
+  .chip { display:inline-block; padding:3px 10px; border-radius:999px; font-size:13px; margin:2px 4px 2px 0; color:#fff; background:var(--accent2); }
+  table { border-collapse:collapse; width:100%; margin-top:8px; }
+  th, td { border-bottom:1px solid var(--border); padding:6px 8px; text-align:left; font-size:14px; }
+  th { color:var(--muted); font-weight:600; }
+  .league { border:1px solid var(--border); border-radius:10px; padding:12px; margin-top:12px; }
+  .league h3 { margin:0 0 6px; }
+  .league p { margin:4px 0; font-size:14px; }
+  .xl { color:#b54708; font-weight:600; }
+  .calc { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
+  .calc label { font-size:13px; color:var(--muted); display:block; margin-bottom:4px; }
+  .calc input, .calc select { padding:9px; font-size:15px; border:1px solid var(--border); border-radius:8px; width:100px; }
+  .calc button { padding:10px 18px; font-size:15px; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; }
+  #calcResult { margin-top:10px; font-size:14px; }
+  footer { color:var(--muted); font-size:13px; text-align:center; padding:8px 16px 24px; }
+  @media (max-width:600px) {
+    header h1 { font-size:22px; }
+    .detail-head img.artwork { width:150px; height:150px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pokémon GO databáze</h1>
+  <p>Vyhledej Pokémona a zjisti ideální IV do jednotlivých lig i nejlepší útoky.</p>
+</header>
+<main>
+  <section class="panel">
+    <p id="status">Načítám data z PvPoke…</p>
+    <div class="filters">
+      <input type="search" id="search" placeholder="Hledat podle jména nebo čísla v Pokédexu…" autocomplete="off">
+      <select id="typeFilter" aria-label="Filtr podle typu"><option value="">Všechny typy</option></select>
+      <select id="genFilter" aria-label="Filtr podle generace">
+        <option value="">Všechny generace</option>
+        <option value="1">Generace I (Kanto)</option>
+        <option value="2">Generace II (Johto)</option>
+        <option value="3">Generace III (Hoenn)</option>
+        <option value="4">Generace IV (Sinnoh)</option>
+        <option value="5">Generace V (Unova)</option>
+        <option value="6">Generace VI (Kalos)</option>
+        <option value="7">Generace VII (Alola)</option>
+        <option value="8">Generace VIII (Galar / Hisui)</option>
+        <option value="9">Generace IX (Paldea)</option>
+      </select>
+      <select id="formFilter" aria-label="Filtr podle formy"><option value="">Všechny formy</option></select>
+    </div>
+    <p id="count"></p>
+    <div id="grid" class="grid"></div>
+    <button id="loadMore" style="display:none">Zobrazit další</button>
+  </section>
+
+  <section id="detail" class="panel" aria-live="polite"></section>
+
+  <section class="panel">
+    <h2>IV kalkulačka</h2>
+    <p style="color:var(--muted);font-size:14px">Vyber nejdřív Pokémona v seznamu, pak zadej jeho IV a ligu. Kalkulačka ukáže, jak dobré tvé IV je v porovnání se všemi 4096 kombinacemi.</p>
+    <div class="calc">
+      <div><label for="ivAtk">Útok (IV)</label><input type="number" id="ivAtk" min="0" max="15" value="15"></div>
+      <div><label for="ivDef">Obrana (IV)</label><input type="number" id="ivDef" min="0" max="15" value="15"></div>
+      <div><label for="ivSta">Výdrž (IV)</label><input type="number" id="ivSta" min="0" max="15" value="15"></div>
+      <div><label for="calcLeague">Liga</label>
+        <select id="calcLeague">
+          <option value="500">Malá liga (500 CP)</option>
+          <option value="1500" selected>Velká liga (1500 CP)</option>
+          <option value="2500">Ultra liga (2500 CP)</option>
+          <option value="10000">Mistrovská liga (bez limitu)</option>
+        </select>
+      </div>
+      <button id="calcBtn" type="button">Spočítat</button>
+    </div>
+    <div id="calcResult"></div>
+  </section>
+</main>
+<footer>
+  Data o Pokémonech, útocích a žebříčcích: PvPoke (otevřená data). Obrázky: PokeAPI sprites.
+  Hodnocení IV je podle součinu statistik (stat product) při daném CP limitu.
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
