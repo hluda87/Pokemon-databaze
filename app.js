@@ -120,53 +120,6 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ---------- GamePress (dnes PokéBase) ----------
-// GamePress se přesunul na pokebase.app. Oddělené movesety pro jednotlivé ligy
-// tam nevedou – u každého Pokémona uvádějí jeden společný nejlepší PvP moveset
-// a podle lig se liší jen ideální IV. Datové API pro movesety je zamčené,
-// takže aplikace na stránku Pokémona odkazuje a přesný odkaz si ověří přes
-// veřejné vyhledávací API PokéBase.
-var POKEBASE_BASE = 'https://pokebase.app';
-var pokebaseCache = {}; // speciesId -> path (např. /pokemon-go/pokemon/azumarill)
-
-function pokebaseSlug(p) {
-  var name = (p.speciesName || '').replace(/\s*\([^)]*\)\s*/g, ' ').trim();
-  return name.toLowerCase()
-    .replace(/['’.]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function pokebaseUrl(p) {
-  var path = pokebaseCache[p.speciesId] || ('/pokemon-go/pokemon/' + pokebaseSlug(p));
-  return POKEBASE_BASE + path;
-}
-
-function resolvePokebaseLink(p) {
-  if (pokebaseCache[p.speciesId]) return;
-  var q = (p.speciesName || '').replace(/\s*\([^)]*\)\s*/g, ' ').trim();
-  fetch(POKEBASE_BASE + '/api/search?site=pokemon-go&q=' + encodeURIComponent(q))
-    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function (data) {
-      var hits = (data && data.hits) || [];
-      var hit = null;
-      for (var i = 0; i < hits.length; i++) {
-        if (hits[i].collection === 'pokemon-go-pokemon') {
-          if (!hit) hit = hits[i];
-          if ((hits[i].name || '').toLowerCase() === q.toLowerCase()) { hit = hits[i]; break; }
-        }
-      }
-      if (hit && hit.path) {
-        pokebaseCache[p.speciesId] = hit.path;
-        var url = POKEBASE_BASE + hit.path;
-        document.querySelectorAll('a[data-pokebase="' + p.speciesId + '"]').forEach(function (a) {
-          a.href = url;
-        });
-      }
-    })
-    .catch(function () { /* zůstane odkaz odvozený ze jména */ });
-}
-
 // ---------- Stav aplikace ----------
 var pokemon = [];
 var moveNames = {};
@@ -516,12 +469,7 @@ function showDetail(p) {
     (typeof p.dex === 'number' ? p.dex : '?') + ' ' + esc(p.speciesName) + '</h2>' +
     '<div>' + typeChips(p.types) + '</div>' +
     '<p style="color:var(--muted);font-size:14px">Základní statistiky: útok ' + p.baseStats.atk +
-    ' · obrana ' + p.baseStats.def + ' · výdrž ' + p.baseStats.hp + '</p>' +
-    '<p style="font-size:14px">Ideální PvP moveset podle GamePressu: ' +
-    '<a class="gp-link" data-pokebase="' + esc(p.speciesId) + '" href="' + esc(pokebaseUrl(p)) +
-    '" target="_blank" rel="noopener">otevřít na GamePress (PokéBase)</a><br>' +
-    '<span style="color:var(--muted)">GamePress uvádí jeden společný nejlepší PvP moveset pro všechny ligy; ' +
-    'podle lig se liší ideální IV níže. Hvězdičkové hodnocení, role v týmu i grafy u útoků počítá aplikace z dat PvPoke.</span></p></div></div>';
+    ' · obrana ' + p.baseStats.def + ' · výdrž ' + p.baseStats.hp + '</p></div></div>';
   html += '<div id="evoBox"><p style="color:var(--muted);font-size:14px;margin:10px 0 0">Vývojová řada: načítám…</p></div>';
 
   LEAGUES.forEach(function (league) {
@@ -532,7 +480,7 @@ function showDetail(p) {
       var si = starsInfo(entry.score);
       ratingHtml = '<p>Hodnocení: ' +
         (si ? '<span class="stars">' + si.stars + '</span> <strong>' + si.label + '</strong> · ' : '') +
-        'pořadí v žebříčku PvPoke <strong>#' + entry.rank + '</strong>' +
+        'pořadí v žebříčku <strong>#' + entry.rank + '</strong>' +
         (entry.score !== null ? ' · skóre ' + entry.score : '') + '</p>' + roleRowsHtml(entry);
     } else {
       ratingHtml = '<p>Hodnocení: <span class="stars">☆☆☆☆☆</span> v žebříčku této ligy se neumístil</p>';
@@ -540,7 +488,7 @@ function showDetail(p) {
     var rows = topIVs(p, league).map(ivRow).join('');
     var movesHtml = '';
     if (moves.recommended) {
-      movesHtml = '<p style="margin-top:8px"><strong>Nejlepší útoky (PvPoke):</strong></p>' +
+      movesHtml = '<p style="margin-top:8px"><strong>Nejlepší útoky:</strong></p>' +
         fastMoveHtml(p, moves.fastId, moves.fast) +
         (moves.chargedIds || []).map(function (cid, i) {
           return chargedMoveHtml(p, cid, moves.charged[i]);
@@ -558,7 +506,6 @@ function showDetail(p) {
   el.innerHTML = html;
   el.classList.add('visible');
   fillEvolution(p);
-  resolvePokebaseLink(p);
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.getElementById('calcResult').textContent = '';
 }
@@ -631,7 +578,7 @@ function init() {
     initSearch();
     applySearch();
   }).catch(function (err) {
-    status.textContent = 'Nepodařilo se načíst data z PvPoke. Zkontroluj připojení a obnov stránku. (' + err.message + ')';
+    status.textContent = 'Nepodařilo se načíst data. Zkontroluj připojení a obnov stránku. (' + err.message + ')';
     status.classList.add('error');
   });
 }

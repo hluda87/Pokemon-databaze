@@ -27,11 +27,6 @@ Statická webová aplikace (čistý HTML/CSS/JS, žádný build krok). Stačí o
     (rychlý útok + až dva nabité). Když Pokémon v žebříčku dané ligy není,
     použije se jeho moveset z jiné ligy nebo ze skupin PvPoke; samotný výpis
     všech dostupných útoků Pokémona se nezobrazuje),
-  - odkaz na ideální PvP moveset podle GamePressu (dnes PokéBase) u každého
-    Pokémona. GamePress oddělené movesety podle lig nevede – uvádí jeden
-    společný nejlepší PvP moveset; jeho datové API je zamčené, proto aplikace
-    na stránku Pokémona odkazuje (přesný odkaz ověřuje přes veřejné
-    vyhledávací API PokéBase),
   - top 3 ideální IV kombinace s levelem, CP a příznakem, zda jsou potřeba
     XL bonbóny (level nad 40). Pro Mistrovskou ligu je ideál 15/15/15 na levelu 51.
 - **IV kalkulačka**: po výběru Pokémona zadej IV (útok/obrana/výdrž 0–15) a ligu
@@ -63,6 +58,14 @@ level 51 = 0,8453.
 - Obrázky: PokeAPI sprites
   (`raw.githubusercontent.com/PokeAPI/sprites/...`). Chybějící obrázek se
   skryje, aplikace nespadne.
+- GamePress (dnes PokéBase, `pokebase.app`) — pouze referenční zdroj
+  uvedený zde pro úplnost informací o tom, odkud se informace o ideálních
+  PvP movesetech ověřovaly. GamePress oddělené movesety podle lig nevede –
+  uvádí jeden společný nejlepší PvP moveset pro všechny ligy a podle lig se
+  liší jen ideální IV; jeho datové API pro movesety je zamčené. Aplikace
+  sama na PokéBase neodkazuje a data z něj nenačítá — hvězdičkové hodnocení,
+  role v týmu i grafy u útoků se počítají z dat PvPoke popsaných výše a tyto
+  vysvětlivky jsou záměrně jen v tomto README, ne v aplikaci.
 
 ## Vývoj
 
