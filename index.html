@@ -17,7 +17,6 @@
   #status.error { color:#b42318; }
   .filters { display:flex; flex-wrap:wrap; gap:10px; }
   .filters input[type="search"] { flex:1 1 220px; padding:10px 12px; font-size:16px; border:1px solid var(--border); border-radius:8px; }
-  .filters select { padding:10px; font-size:15px; border:1px solid var(--border); border-radius:8px; background:#fff; }
   #count { color:var(--muted); font-size:14px; margin:12px 0 0; }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:12px; margin-top:12px; }
   .poke-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px; text-align:center; cursor:pointer; }
@@ -38,6 +37,22 @@
   .league { border:1px solid var(--border); border-radius:10px; padding:12px; margin-top:12px; }
   .league h3 { margin:0 0 6px; }
   .league p { margin:4px 0; font-size:14px; }
+  .stars { color:#f5a623; font-size:18px; letter-spacing:2px; }
+  .meter { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin:3px 0; }
+  .meter .lbl { width:118px; flex:none; }
+  .meter .track { flex:1; height:8px; background:#edf0f5; border-radius:4px; overflow:hidden; }
+  .meter .fill { height:100%; border-radius:4px; }
+  .meter .val { width:44px; flex:none; text-align:right; font-variant-numeric:tabular-nums; }
+  .fill.energy { background:#f59e0b; }
+  .fill.dmg { background:#dc2626; }
+  .fill.power { background:#2a75bb; }
+  .fill.cost-low { background:#16a34a; }
+  .fill.cost-mid { background:#f59e0b; }
+  .fill.cost-high { background:#dc2626; }
+  .fill.role { background:#94a3b8; }
+  .fill.role-best { background:#16a34a; }
+  .move { margin:8px 0; }
+  .badge { display:inline-block; background:#eef2ff; border:1px solid var(--border); border-radius:999px; padding:0 8px; font-size:12px; margin-left:6px; }
   .xl { color:#b54708; font-weight:600; }
   .gp-link { color:var(--accent2); font-weight:600; }
   .calc { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
@@ -62,20 +77,6 @@
     <p id="status">Načítám data z PvPoke…</p>
     <div class="filters">
       <input type="search" id="search" placeholder="Hledat podle jména nebo čísla v Pokédexu…" autocomplete="off">
-      <select id="typeFilter" aria-label="Filtr podle typu"><option value="">Všechny typy</option></select>
-      <select id="genFilter" aria-label="Filtr podle generace">
-        <option value="">Všechny generace</option>
-        <option value="1">Generace I (Kanto)</option>
-        <option value="2">Generace II (Johto)</option>
-        <option value="3">Generace III (Hoenn)</option>
-        <option value="4">Generace IV (Sinnoh)</option>
-        <option value="5">Generace V (Unova)</option>
-        <option value="6">Generace VI (Kalos)</option>
-        <option value="7">Generace VII (Alola)</option>
-        <option value="8">Generace VIII (Galar / Hisui)</option>
-        <option value="9">Generace IX (Paldea)</option>
-      </select>
-      <select id="formFilter" aria-label="Filtr podle formy"><option value="">Všechny formy</option></select>
     </div>
     <p id="count"></p>
     <div id="grid" class="grid"></div>

@@ -110,23 +110,6 @@ var TYPE_COLORS = {
   steel: '#b7b7ce', fairy: '#d685ad'
 };
 
-function genOf(dex) {
-  if (dex <= 151) return 1;
-  if (dex <= 251) return 2;
-  if (dex <= 386) return 3;
-  if (dex <= 493) return 4;
-  if (dex <= 649) return 5;
-  if (dex <= 721) return 6;
-  if (dex <= 809) return 7;
-  if (dex <= 905) return 8;
-  return 9;
-}
-
-function formOf(p) {
-  var m = (p.speciesName || '').match(/\(([^)]+)\)/);
-  return m ? m[1] : 'Standardní';
-}
-
 function prettyMoveId(id) {
   return id.toLowerCase().split('_').map(function (w) {
     return w.charAt(0).toUpperCase() + w.slice(1);
@@ -187,8 +170,9 @@ function resolvePokebaseLink(p) {
 // ---------- Stav aplikace ----------
 var pokemon = [];
 var moveNames = {};
+var moveData = {}; // moveId -> { name, type, power, energy, energyGain, turns, buffs, buffTarget, buffApplyChance }
 var groups = {};    // league key -> { speciesId: { fastMove, chargedMoves } }
-var rankings = {};  // league key -> { speciesId: { rank, score } }
+var rankings = {};  // league key -> { speciesId: { rank, score, moveset, scores } }
 var selected = null;
 var filtered = [];
 var shownCount = 0;
@@ -196,10 +180,10 @@ var PAGE_SIZE = 100;
 var ivCache = {};   // speciesId + cap -> ranked list
 
 var LEAGUES = [
-  { key: 'little', label: 'Malá liga', cap: 500, groupFile: null, rankFile: null },
-  { key: 'great', label: 'Velká liga', cap: 1500, groupFile: 'great', rankFile: '1500' },
-  { key: 'ultra', label: 'Ultra liga', cap: 2500, groupFile: 'ultra', rankFile: '2500' },
-  { key: 'master', label: 'Mistrovská liga', cap: Infinity, groupFile: 'master', rankFile: '10000' }
+  { key: 'little', label: 'Malá liga', cap: 500, groupFile: null, rankPath: 'rankings/little/overall/rankings-500.json' },
+  { key: 'great', label: 'Velká liga', cap: 1500, groupFile: 'great', rankPath: 'rankings/all/overall/rankings-1500.json' },
+  { key: 'ultra', label: 'Ultra liga', cap: 2500, groupFile: 'ultra', rankPath: 'rankings/all/overall/rankings-2500.json' },
+  { key: 'master', label: 'Mistrovská liga', cap: Infinity, groupFile: 'master', rankPath: 'rankings/all/overall/rankings-10000.json' }
 ];
 
 function fetchJson(url) {
@@ -226,7 +210,11 @@ function rankingMap(arr) {
       if (e && e.speciesId) {
         map[e.speciesId] = {
           rank: i + 1,
-          score: (typeof e.score === 'number' ? e.score : (typeof e.rating === 'number' ? e.rating : null))
+          score: (typeof e.score === 'number' ? e.score : (typeof e.rating === 'number' ? e.rating : null)),
+          moveset: (Array.isArray(e.moveset) ? e.moveset : []).filter(function (m) {
+            return m && m !== 'none';
+          }),
+          scores: (Array.isArray(e.scores) ? e.scores : null)
         };
       }
     });
@@ -239,24 +227,52 @@ function moveName(id, isFast) {
   return prettyMoveId(id);
 }
 
+// Nejlepší útoky Pokémona pro danou ligu. Hlavní zdroj je pole moveset
+// v žebříčcích PvPoke pro danou ligu ([rychlý, nabitý, nabitý]). Když tam
+// Pokémon není (např. v Malé lize smí jen některé druhy), vezme se jeho
+// moveset z jiné ligy, případně ze skupin PvPoke – pořád jde o nejlepší
+// známý PvP set daného Pokémona, ne o výpis všech jeho útoků.
 function recommendedMoves(p, league) {
+  var ids = [p.speciesId, p.speciesId.replace(/_shadow$/, '')];
+  var leagueOrder = [league.key, 'great', 'ultra', 'master', 'little'];
+  var seen = {};
+  for (var li = 0; li < leagueOrder.length; li++) {
+    var lk = leagueOrder[li];
+    if (seen[lk]) continue;
+    seen[lk] = true;
+    var map = rankings[lk];
+    if (!map) continue;
+    for (var ii = 0; ii < ids.length; ii++) {
+      var entry = map[ids[ii]];
+      if (entry && entry.moveset && entry.moveset.length >= 2) {
+        return {
+          recommended: true,
+          fast: moveName(entry.moveset[0]),
+          fastId: entry.moveset[0],
+          charged: entry.moveset.slice(1).map(function (m) { return moveName(m); }),
+          chargedIds: entry.moveset.slice(1)
+        };
+      }
+    }
+  }
+  var groupFiles = [league.groupFile, 'great', 'ultra', 'master'];
   var g = null;
-  if (league.groupFile && groups[league.groupFile]) {
-    g = groups[league.groupFile][p.speciesId] ||
-        groups[league.groupFile][p.speciesId.replace(/_shadow$/, '')] || null;
+  for (var gi = 0; gi < groupFiles.length && !g; gi++) {
+    var gf = groupFiles[gi];
+    if (gf && groups[gf]) {
+      g = groups[gf][p.speciesId] || groups[gf][p.speciesId.replace(/_shadow$/, '')] || null;
+    }
   }
   if (g && g.fastMove) {
     return {
       recommended: true,
       fast: moveName(g.fastMove),
-      charged: (g.chargedMoves || []).map(function (m) { return moveName(m); })
+      fastId: g.fastMove,
+      charged: (g.chargedMoves || []).map(function (m) { return moveName(m); }),
+      chargedIds: (g.chargedMoves || []).slice()
     };
   }
-  return {
-    recommended: false,
-    fast: (p.fastMoves || []).map(function (m) { return moveName(m); }).join(', '),
-    charged: (p.chargedMoves || []).map(function (m) { return moveName(m); }).join(', ')
-  };
+  return { recommended: false };
 }
 
 function topIVs(p, league) {
@@ -287,23 +303,14 @@ function typeChips(types) {
   }).join('');
 }
 
-function applyFilters() {
+function applySearch() {
   var q = (document.getElementById('search').value || '').trim().toLowerCase();
-  var type = document.getElementById('typeFilter').value;
-  var gen = document.getElementById('genFilter').value;
-  var form = document.getElementById('formFilter').value;
   var isNum = q !== '' && /^\d+$/.test(q);
   filtered = pokemon.filter(function (p) {
-    if (q) {
-      var nameHit = (p.speciesName || '').toLowerCase().indexOf(q) !== -1;
-      var dexHit = isNum && typeof p.dex === 'number' && String(p.dex).indexOf(q) === 0;
-      if (!nameHit && !dexHit) return false;
-    }
-    if (type && !(p.types || []).includes(type)) return false;
-    if (gen && typeof p.dex === 'number' && genOf(p.dex) !== parseInt(gen, 10)) return false;
-    if (gen && typeof p.dex !== 'number') return false;
-    if (form && formOf(p) !== form) return false;
-    return true;
+    if (!q) return true;
+    var nameHit = (p.speciesName || '').toLowerCase().indexOf(q) !== -1;
+    var dexHit = isNum && typeof p.dex === 'number' && String(p.dex).indexOf(q) === 0;
+    return nameHit || dexHit;
   });
   shownCount = 0;
   document.getElementById('count').textContent =
@@ -341,6 +348,94 @@ function renderGrid(reset) {
   });
 }
 
+// ---------- Grafické znázornění: hvězdičky, role v týmu, vlastnosti útoků ----------
+// Textové popisy se negenerují – vše se ukazuje graficky z dat PvPoke
+// (skóre v žebříčku, dílčí skóre rolí a PvP parametry útoků v gamemasteru).
+function fmtNum(x) {
+  return (Math.round(x * 10) / 10).toString().replace('.', ',');
+}
+
+function meterRow(label, pct, valueText, cls) {
+  var w = Math.max(0, Math.min(100, Math.round(pct)));
+  return '<div class="meter"><span class="lbl">' + esc(label) + '</span>' +
+    '<span class="track"><span class="fill ' + cls + '" style="display:block;width:' + w + '%"></span></span>' +
+    '<span class="val">' + esc(valueText) + '</span></div>';
+}
+
+var STAR_LABELS = ['Nevhodné', 'Slabá volba', 'Omezená volba', 'Silná volba', 'Výborná volba', 'Absolutní špička'];
+function starsInfo(score) {
+  if (typeof score !== 'number') return null;
+  var n = Math.max(0, Math.min(5, Math.round(score / 20)));
+  var s = '';
+  for (var i = 0; i < 5; i++) s += (i < n ? '★' : '☆');
+  return { stars: s, label: STAR_LABELS[n] };
+}
+
+// Dílčí skóre rolí v poli scores žebříčku: [celkem, konzistence, lead, switch, closer, charger]
+var ROLE_DEFS = [
+  { idx: 2, label: 'Vedoucí' },
+  { idx: 3, label: 'Střídač' },
+  { idx: 4, label: 'Zavírač' },
+  { idx: 5, label: 'Útočník' }
+];
+function roleRowsHtml(entry) {
+  if (!entry || !Array.isArray(entry.scores)) return '';
+  var best = -1, bestVal = -1;
+  ROLE_DEFS.forEach(function (r) {
+    var v = entry.scores[r.idx];
+    if (typeof v === 'number' && v > bestVal) { bestVal = v; best = r.idx; }
+  });
+  if (best < 0) return '';
+  var rows = ROLE_DEFS.map(function (r) {
+    var v = entry.scores[r.idx];
+    if (typeof v !== 'number') return '';
+    return meterRow(r.label + (r.idx === best ? ' ★' : ''), v, fmtNum(v),
+      r.idx === best ? 'role-best' : 'role');
+  }).join('');
+  return '<div style="margin:6px 0"><p style="margin:2px 0"><strong>Role v týmu</strong> (★ = nejsilnější role):</p>' + rows + '</div>';
+}
+
+function buffBadge(move) {
+  if (!move || !Array.isArray(move.buffs)) return '';
+  var atk = move.buffs[0] || 0, def = move.buffs[1] || 0;
+  if (!atk && !def) return '';
+  var chance = parseFloat(move.buffApplyChance);
+  var parts = [];
+  if (atk) parts.push((atk > 0 ? '↑' : '↓') + ' útok ' + (atk > 0 ? '+' : '') + atk);
+  if (def) parts.push((def > 0 ? '↑' : '↓') + ' obrana ' + (def > 0 ? '+' : '') + def);
+  var txt = parts.join(', ') + (move.buffTarget === 'self' ? ' (vlastní)' : ' (soupeř)');
+  if (!isNaN(chance) && chance < 1) txt += ' · ' + Math.round(chance * 100) + ' %';
+  return '<span class="badge">' + esc(txt) + '</span>';
+}
+
+function stabBadge(p, move) {
+  if (move && (p.types || []).indexOf(move.type) !== -1) return '<span class="badge">STAB</span>';
+  return '';
+}
+
+function fastMoveHtml(p, id, name) {
+  var m = moveData[id];
+  var html = '<div class="move"><strong>' + esc(name) + '</strong> (rychlý útok)' + stabBadge(p, m) + buffBadge(m);
+  if (m && m.turns) {
+    var ept = (m.energyGain || 0) / m.turns;
+    var dpt = (m.power || 0) / m.turns;
+    html += meterRow('Energie / tah', ept / 5 * 100, fmtNum(ept), 'energy');
+    html += meterRow('Poškození / tah', dpt / 5 * 100, fmtNum(dpt), 'dmg');
+  }
+  return html + '</div>';
+}
+
+function chargedMoveHtml(p, id, name) {
+  var m = moveData[id];
+  var html = '<div class="move"><strong>' + esc(name) + '</strong> (nabitý útok)' + stabBadge(p, m) + buffBadge(m);
+  if (m) {
+    var costCls = m.energy <= 45 ? 'cost-low' : (m.energy <= 60 ? 'cost-mid' : 'cost-high');
+    html += meterRow('Síla', (m.power || 0) / 150 * 100, String(m.power || 0), 'power');
+    html += meterRow('Cena (energie)', (m.energy || 0), String(m.energy || 0), costCls);
+  }
+  return html + '</div>';
+}
+
 function showDetail(p) {
   selected = p;
   var el = document.getElementById('detail');
@@ -356,33 +451,36 @@ function showDetail(p) {
     '<a class="gp-link" data-pokebase="' + esc(p.speciesId) + '" href="' + esc(pokebaseUrl(p)) +
     '" target="_blank" rel="noopener">otevřít na GamePress (PokéBase)</a><br>' +
     '<span style="color:var(--muted)">GamePress uvádí jeden společný nejlepší PvP moveset pro všechny ligy; ' +
-    'podle lig se liší ideální IV níže. Movesety v ligách jsou doporučení PvPoke pro danou ligu.</span></p></div></div>';
+    'podle lig se liší ideální IV níže. Hvězdičkové hodnocení, role v týmu i grafy u útoků počítá aplikace z dat PvPoke.</span></p></div></div>';
 
   LEAGUES.forEach(function (league) {
     var moves = recommendedMoves(p, league);
-    var rankInfo = '';
-    if (league.rankFile && rankings[league.rankFile]) {
-      var r = rankings[league.rankFile][p.speciesId];
-      if (r) {
-        rankInfo = '<p>Pořadí v žebříčku PvPoke: <strong>#' + r.rank + '</strong>' +
-          (r.score !== null ? ' (skóre ' + r.score + ')' : '') + '</p>';
-      }
+    var entry = rankings[league.key] ? rankings[league.key][p.speciesId] : null;
+    var ratingHtml;
+    if (entry) {
+      var si = starsInfo(entry.score);
+      ratingHtml = '<p>Hodnocení: ' +
+        (si ? '<span class="stars">' + si.stars + '</span> <strong>' + si.label + '</strong> · ' : '') +
+        'pořadí v žebříčku PvPoke <strong>#' + entry.rank + '</strong>' +
+        (entry.score !== null ? ' · skóre ' + entry.score : '') + '</p>' + roleRowsHtml(entry);
+    } else {
+      ratingHtml = '<p>Hodnocení: <span class="stars">☆☆☆☆☆</span> v žebříčku této ligy se neumístil</p>';
     }
     var rows = topIVs(p, league).map(ivRow).join('');
-    var movesHtml;
+    var movesHtml = '';
     if (moves.recommended) {
-      movesHtml = '<p>Rychlý útok: <strong>' + esc(moves.fast) + '</strong><br>' +
-        'Nabité útoky: <strong>' + esc(moves.charged.join(', ')) + '</strong></p>';
-    } else {
-      movesHtml = '<p><em>Doporučený set není v datech PvPoke, dostupné útoky:</em><br>' +
-        'Rychlé: ' + esc(moves.fast) + '<br>Nabité: ' + esc(moves.charged) + '</p>';
+      movesHtml = '<p style="margin-top:8px"><strong>Nejlepší útoky (PvPoke):</strong></p>' +
+        fastMoveHtml(p, moves.fastId, moves.fast) +
+        (moves.chargedIds || []).map(function (cid, i) {
+          return chargedMoveHtml(p, cid, moves.charged[i]);
+        }).join('');
     }
     var note = league.cap === Infinity
       ? '<p><em>Bez CP limitu je nejlepší kombinace 15/15/15 na levelu 51.</em></p>'
       : '';
     html += '<div class="league"><h3>' + league.label +
       (league.cap === Infinity ? '' : ' (' + league.cap + ' CP)') + '</h3>' +
-      rankInfo + movesHtml + note +
+      ratingHtml + movesHtml + note +
       '<table><tr><th>Ideální IV (útok/obrana/výdrž)</th><th>Level</th><th>CP</th><th>Součin statistik</th></tr>' +
       rows + '</table></div>';
   });
@@ -393,26 +491,8 @@ function showDetail(p) {
   document.getElementById('calcResult').textContent = '';
 }
 
-function initFilters() {
-  var typeSel = document.getElementById('typeFilter');
-  Object.keys(TYPE_NAMES).forEach(function (t) {
-    if (t === 'none') return;
-    var o = document.createElement('option');
-    o.value = t; o.textContent = TYPE_NAMES[t];
-    typeSel.appendChild(o);
-  });
-  var forms = {};
-  pokemon.forEach(function (p) { forms[formOf(p)] = true; });
-  var formSel = document.getElementById('formFilter');
-  Object.keys(forms).sort().forEach(function (f) {
-    var o = document.createElement('option');
-    o.value = f; o.textContent = f;
-    formSel.appendChild(o);
-  });
-  ['search', 'typeFilter', 'genFilter', 'formFilter'].forEach(function (id) {
-    document.getElementById(id).addEventListener('input', applyFilters);
-    document.getElementById(id).addEventListener('change', applyFilters);
-  });
+function initSearch() {
+  document.getElementById('search').addEventListener('input', applySearch);
   document.getElementById('loadMore').addEventListener('click', function () { renderGrid(false); });
   document.getElementById('calcBtn').addEventListener('click', runCalculator);
 }
@@ -447,30 +527,37 @@ function runCalculator() {
 
 function init() {
   var status = document.getElementById('status');
+  // Žebříčky (včetně nejlepších útoků) jsou nepovinné: když se některý
+  // nenačte, aplikace běží dál a útoky se vezmou ze skupin PvPoke.
+  var rankingLoads = LEAGUES.map(function (league) {
+    return fetchJson(PVPOKE_BASE + league.rankPath)
+      .then(function (arr) { return rankingMap(arr); })
+      .catch(function () { return null; });
+  });
   var core = Promise.all([
     fetchJson(PVPOKE_BASE + 'gamemaster/pokemon.json'),
     fetchJson(PVPOKE_BASE + 'gamemaster/moves.json'),
     fetchJson(PVPOKE_BASE + 'groups/great.json'),
     fetchJson(PVPOKE_BASE + 'groups/ultra.json'),
     fetchJson(PVPOKE_BASE + 'groups/master.json')
-  ]);
-  // Žebříčky jsou nepovinné: při chybě se pořadí prostě nezobrazí.
-  ['1500', '2500', '10000'].forEach(function (cp) {
-    fetchJson(PVPOKE_BASE + 'rankings/all/overall/rankings-' + cp + '.json')
-      .then(function (arr) { rankings[cp] = rankingMap(arr); })
-      .catch(function () { /* pořadí se skryje, aplikace běží dál */ });
-  });
+  ].concat(rankingLoads));
   core.then(function (data) {
     pokemon = data[0];
     (Array.isArray(data[1]) ? data[1] : []).forEach(function (m) {
-      if (m && m.moveId) moveNames[m.moveId] = m.name || prettyMoveId(m.moveId);
+      if (m && m.moveId) {
+        moveNames[m.moveId] = m.name || prettyMoveId(m.moveId);
+        moveData[m.moveId] = m;
+      }
     });
     groups.great = groupMap(data[2]);
     groups.ultra = groupMap(data[3]);
     groups.master = groupMap(data[4]);
+    LEAGUES.forEach(function (league, i) {
+      if (data[5 + i]) rankings[league.key] = data[5 + i];
+    });
     status.textContent = 'Data načtena: ' + pokemon.length.toLocaleString('cs-CZ') + ' záznamů.';
-    initFilters();
-    applyFilters();
+    initSearch();
+    applySearch();
   }).catch(function (err) {
     status.textContent = 'Nepodařilo se načíst data z PvPoke. Zkontroluj připojení a obnov stránku. (' + err.message + ')';
     status.classList.add('error');
