@@ -223,7 +223,7 @@ function topIVs(p, league) {
   }
   var key = p.speciesId + ':' + league.cap;
   if (!ivCache[key]) ivCache[key] = rankAllIVs(p.baseStats, league.cap);
-  return ivCache[key].slice(0, 5);
+  return ivCache[key].slice(0, 3);
 }
 
 function ivRow(r) {

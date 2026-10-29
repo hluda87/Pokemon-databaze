@@ -15,7 +15,7 @@ Statická webová aplikace (čistý HTML/CSS/JS, žádný build krok). Stačí o
   - pořadí a skóre v žebříčku PvPoke (pokud se žebříčky podaří načíst),
   - doporučené útoky z dat PvPoke (rychlý útok + nabité útoky; pro Malou ligu,
     kde PvPoke skupiny nemá, se zobrazí všechny dostupné útoky),
-  - top 5 ideálních IV kombinací s levelem, CP a příznakem, zda jsou potřeba
+  - top 3 ideální IV kombinace s levelem, CP a příznakem, zda jsou potřeba
     XL bonbóny (level nad 40). Pro Mistrovskou ligu je ideál 15/15/15 na levelu 51.
 - **IV kalkulačka**: po výběru Pokémona zadej IV (útok/obrana/výdrž 0–15) a ligu
   — ukáže pořadí kombinace ze všech 4096, nejlepší level, CP a součin statistik.
