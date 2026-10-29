@@ -436,6 +436,76 @@ function chargedMoveHtml(p, id, name) {
   return html + '</div>';
 }
 
+// ---------- Přepínač vývojových fází ----------
+// Řada se načítá z evolučních řetězců PokeAPI (stejný zdroj jako obrázky).
+// Fáze jdou zleva doprava podle stupně vývoje, u větvení podle čísla v Pokédexu.
+var evoCache = {}; // dex -> Promise<stages|null>
+
+function speciesIdFromApi(name) {
+  var id = (name || '').replace(/-/g, '_');
+  var special = { nidoran_f: 'nidoran_female', nidoran_m: 'nidoran_male' };
+  return special[id] || id;
+}
+
+function findSpeciesEntry(apiName, dex) {
+  var sid = speciesIdFromApi(apiName);
+  var byId = pokemon.find(function (x) { return x.speciesId === sid; });
+  if (byId) return byId;
+  var byDex = pokemon.filter(function (x) { return x.dex === dex; });
+  if (!byDex.length) return null;
+  byDex.sort(function (a, b) {
+    var sa = /_shadow|\(/.test(a.speciesId) ? 1 : 0;
+    var sb = /_shadow|\(/.test(b.speciesId) ? 1 : 0;
+    return sa - sb;
+  });
+  return byDex[0];
+}
+
+function loadEvolutionStages(dex) {
+  if (evoCache[dex]) return evoCache[dex];
+  evoCache[dex] = fetchJson('https://pokeapi.co/api/v2/pokemon-species/' + dex + '/')
+    .then(function (sp) { return fetchJson(sp.evolution_chain.url); })
+    .then(function (data) {
+      var flat = [];
+      (function walk(node, depth) {
+        var m = /pokemon-species\/(\d+)\//.exec(node.species.url);
+        flat.push({ name: node.species.name, dex: m ? parseInt(m[1], 10) : null, depth: depth });
+        (node.evolves_to || []).forEach(function (ch) { walk(ch, depth + 1); });
+      })(data.chain, 0);
+      flat.sort(function (a, b) { return (a.depth - b.depth) || (a.dex - b.dex); });
+      return flat;
+    })
+    .catch(function () { return null; });
+  return evoCache[dex];
+}
+
+function fillEvolution(p) {
+  var box = document.getElementById('evoBox');
+  if (!box) return;
+  if (typeof p.dex !== 'number') { box.innerHTML = ''; return; }
+  loadEvolutionStages(p.dex).then(function (stages) {
+    if (!selected || selected.speciesId !== p.speciesId) return; // detail už ukazuje jiného Pokémona
+    if (!stages || !stages.length) { box.innerHTML = ''; return; }
+    var btns = stages.map(function (st) {
+      var entry = findSpeciesEntry(st.name, st.dex);
+      if (!entry) return '';
+      return '<button class="evo-btn' + (st.dex === p.dex ? ' active' : '') +
+        '" data-evo="' + esc(entry.speciesId) + '">' +
+        '<img src="' + SPRITE_BASE + st.dex + '.png" alt="" loading="lazy" onerror="this.style.display=\'none\'">' +
+        '<span>#' + st.dex + ' ' + esc(entry.speciesName) + '</span></button>';
+    }).join('');
+    if (!btns) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p style="color:var(--muted);font-size:14px;margin:10px 0 0">Vývojová řada:</p>' +
+      '<div class="evo-strip">' + btns + '</div>';
+    box.querySelectorAll('.evo-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var target = pokemon.find(function (x) { return x.speciesId === btn.dataset.evo; });
+        if (target) showDetail(target);
+      });
+    });
+  });
+}
+
 function showDetail(p) {
   selected = p;
   var el = document.getElementById('detail');
@@ -452,6 +522,7 @@ function showDetail(p) {
     '" target="_blank" rel="noopener">otevřít na GamePress (PokéBase)</a><br>' +
     '<span style="color:var(--muted)">GamePress uvádí jeden společný nejlepší PvP moveset pro všechny ligy; ' +
     'podle lig se liší ideální IV níže. Hvězdičkové hodnocení, role v týmu i grafy u útoků počítá aplikace z dat PvPoke.</span></p></div></div>';
+  html += '<div id="evoBox"><p style="color:var(--muted);font-size:14px;margin:10px 0 0">Vývojová řada: načítám…</p></div>';
 
   LEAGUES.forEach(function (league) {
     var moves = recommendedMoves(p, league);
@@ -486,6 +557,7 @@ function showDetail(p) {
   });
   el.innerHTML = html;
   el.classList.add('visible');
+  fillEvolution(p);
   resolvePokebaseLink(p);
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.getElementById('calcResult').textContent = '';

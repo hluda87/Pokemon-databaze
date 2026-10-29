@@ -10,7 +10,9 @@ Statická webová aplikace (čistý HTML/CSS/JS, žádný build krok). Stačí o
   jednoho Pokémona, proto nemá žádné filtry podle typu, generace ani formy.
 - **Přehled** všech Pokémonů s obrázkem z PokeAPI sprites.
 - **Detailní karta** vybraného Pokémona: velký oficiální artwork, typy, základní
-  statistiky a pro každou ligu (Malá 500 CP, Velká 1500 CP, Ultra 2500 CP,
+  statistiky, **přepínač vývojových fází** (posuvný pás tlačítek s obrázky
+  všech fází řady z evolučních řetězců PokeAPI, seřazených podle stupně
+  vývoje; kliknutí otevře kartu dané fáze) a pro každou ligu (Malá 500 CP, Velká 1500 CP, Ultra 2500 CP,
   Mistrovská bez limitu):
   - pořadí a skóre v žebříčku PvPoke (pokud se žebříčky podaří načíst),
   - **hvězdičkové hodnocení ligy** (0–5 ★ podle skóre PvPoke, se slovním
