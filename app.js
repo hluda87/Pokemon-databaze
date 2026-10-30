@@ -132,6 +132,68 @@ var shownCount = 0;
 var PAGE_SIZE = 100;
 var ivCache = {};   // speciesId + cap -> ranked list
 
+// ---------- Historie vyhledávání ----------
+// Posledních 10 zobrazených Pokémonů, nejnovější první. Ukládá se do
+// localStorage, takže vydrží i po obnovení stránky; když localStorage
+// není dostupné, drží se historie jen v paměti.
+var HISTORY_KEY = 'pokemon-go-db-history-v1';
+var HISTORY_LIMIT = 10;
+var searchHistory = loadHistory();
+
+function loadHistory() {
+  try {
+    var raw = localStorage.getItem(HISTORY_KEY);
+    var arr = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(function (e) { return e && e.speciesId && e.speciesName; }).slice(0, HISTORY_LIMIT);
+  } catch (e) { return []; }
+}
+
+function saveHistory() {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory)); } catch (e) { /* běží dál jen v paměti */ }
+}
+
+function addToHistory(p) {
+  if (!p || !p.speciesId) return;
+  searchHistory = searchHistory.filter(function (e) { return e.speciesId !== p.speciesId; });
+  searchHistory.unshift({ speciesId: p.speciesId, speciesName: p.speciesName, dex: (typeof p.dex === 'number' ? p.dex : null) });
+  if (searchHistory.length > HISTORY_LIMIT) searchHistory = searchHistory.slice(0, HISTORY_LIMIT);
+  saveHistory();
+  renderHistory();
+}
+
+function clearHistory() {
+  searchHistory = [];
+  saveHistory();
+  renderHistory();
+}
+
+function renderHistory() {
+  var box = document.getElementById('historyBox');
+  if (!box) return;
+  if (!searchHistory.length) { box.innerHTML = ''; return; }
+  var chips = searchHistory.map(function (e) {
+    var img = (typeof e.dex === 'number')
+      ? '<img src="' + SPRITE_BASE + e.dex + '.png" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+      : '';
+    return '<button type="button" class="hist-chip" data-hist="' + esc(e.speciesId) + '">' + img +
+      '<span class="h-name">' + esc(e.speciesName) + '</span>' +
+      '<span class="h-dex">#' + (typeof e.dex === 'number' ? e.dex : '?') + '</span></button>';
+  }).join('');
+  box.innerHTML = '<div class="history"><div class="history-head">' +
+    '<span class="history-title">🕘 Historie vyhledávání</span>' +
+    '<button type="button" class="history-clear" id="historyClear">Vymazat</button></div>' +
+    '<div class="history-strip">' + chips + '</div></div>';
+  box.querySelectorAll('.hist-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var target = pokemon.find(function (x) { return x.speciesId === chip.dataset.hist; });
+      if (target) showDetail(target);
+    });
+  });
+  var clearBtn = document.getElementById('historyClear');
+  if (clearBtn) clearBtn.addEventListener('click', clearHistory);
+}
+
 var LEAGUES = [
   { key: 'little', label: 'Malá liga', cap: 500, groupFile: null, rankPath: 'rankings/little/overall/rankings-500.json' },
   { key: 'great', label: 'Velká liga', cap: 1500, groupFile: 'great', rankPath: 'rankings/all/overall/rankings-1500.json' },
@@ -461,6 +523,7 @@ function fillEvolution(p) {
 
 function showDetail(p) {
   selected = p;
+  addToHistory(p);
   var el = document.getElementById('detail');
   var img = (typeof p.dex === 'number')
     ? '<img class="artwork" src="' + ARTWORK_BASE + p.dex + '.png" alt="' + esc(p.speciesName) + '" onerror="this.style.display=\'none\'">'
@@ -472,19 +535,17 @@ function showDetail(p) {
     ' · obrana ' + p.baseStats.def + ' · výdrž ' + p.baseStats.hp + '</p></div></div>';
   html += '<div id="evoBox"><p style="color:var(--muted);font-size:14px;margin:10px 0 0">Vývojová řada: načítám…</p></div>';
 
+  var shownLeagues = 0;
   LEAGUES.forEach(function (league) {
-    var moves = recommendedMoves(p, league);
     var entry = rankings[league.key] ? rankings[league.key][p.speciesId] : null;
-    var ratingHtml;
-    if (entry) {
-      var si = starsInfo(entry.score);
-      ratingHtml = '<p>Hodnocení: ' +
-        (si ? '<span class="stars">' + si.stars + '</span> <strong>' + si.label + '</strong> · ' : '') +
-        'pořadí v žebříčku <strong>#' + entry.rank + '</strong>' +
-        (entry.score !== null ? ' · skóre ' + entry.score : '') + '</p>' + roleRowsHtml(entry);
-    } else {
-      ratingHtml = '<p>Hodnocení: <span class="stars">☆☆☆☆☆</span> v žebříčku této ligy se neumístil</p>';
-    }
+    if (!entry) return; // liga, ve které Pokémon není hodnocený, se na kartě vůbec nezobrazuje
+    shownLeagues++;
+    var moves = recommendedMoves(p, league);
+    var si = starsInfo(entry.score);
+    var ratingHtml = '<p>Hodnocení: ' +
+      (si ? '<span class="stars">' + si.stars + '</span> <strong>' + si.label + '</strong> · ' : '') +
+      'pořadí v žebříčku <strong>#' + entry.rank + '</strong>' +
+      (entry.score !== null ? ' · skóre ' + entry.score : '') + '</p>' + roleRowsHtml(entry);
     var rows = topIVs(p, league).map(ivRow).join('');
     var movesHtml = '';
     if (moves.recommended) {
@@ -499,10 +560,13 @@ function showDetail(p) {
       : '';
     html += '<div class="league"><h3>' + league.label +
       (league.cap === Infinity ? '' : ' (' + league.cap + ' CP)') + '</h3>' +
-      ratingHtml + movesHtml + note +
+      ratingHtml + note +
       '<table><tr><th>Ideální IV (útok/obrana/výdrž)</th><th>Level</th><th>CP</th><th>Součin statistik</th></tr>' +
-      rows + '</table></div>';
+      rows + '</table>' + movesHtml + '</div>';
   });
+  if (!shownLeagues) {
+    html += '<p style="color:var(--muted);font-size:14px;margin-top:12px">Tento Pokémon není hodnocený v žádné lize.</p>';
+  }
   el.innerHTML = html;
   el.classList.add('visible');
   fillEvolution(p);
@@ -576,6 +640,7 @@ function init() {
     });
     status.textContent = 'Data načtena: ' + pokemon.length.toLocaleString('cs-CZ') + ' záznamů.';
     initSearch();
+    renderHistory();
     applySearch();
   }).catch(function (err) {
     status.textContent = 'Nepodařilo se načíst data. Zkontroluj připojení a obnov stránku. (' + err.message + ')';

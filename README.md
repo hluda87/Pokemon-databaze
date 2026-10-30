@@ -9,26 +9,38 @@ Statická webová aplikace (čistý HTML/CSS/JS, žádný build krok). Stačí o
   velikosti písmen) nebo čísla v Pokédexu. Aplikace je určená k dohledání
   jednoho Pokémona, proto nemá žádné filtry podle typu, generace ani formy.
 - **Přehled** všech Pokémonů s obrázkem z PokeAPI sprites.
+- **Historie vyhledávání**: pod vyhledávacím polem se jako posuvný proužek
+  kulatých tlačítek (obrázek, jméno a číslo v Pokédexu) ukazuje posledních
+  10 zobrazených Pokémonů, nejnovější první. Kliknutí znovu otevře kartu,
+  opakované otevření stejného Pokémona ho jen přesune na začátek (bez
+  duplicit). Historie se ukládá do `localStorage` prohlížeče, takže vydrží
+  i po obnovení stránky, a jde vymazat tlačítkem „Vymazat“. Když je historie
+  prázdná, proužek se nezobrazuje.
 - **Detailní karta** vybraného Pokémona: velký oficiální artwork, typy, základní
   statistiky, **přepínač vývojových fází** (posuvný pás tlačítek s obrázky
   všech fází řady z evolučních řetězců PokeAPI, seřazených podle stupně
-  vývoje; kliknutí otevře kartu dané fáze) a pro každou ligu (Malá 500 CP, Velká 1500 CP, Ultra 2500 CP,
-  Mistrovská bez limitu):
+  vývoje; kliknutí otevře kartu dané fáze) a pro každou ligu, ve které je
+  Pokémon hodnocený (Malá 500 CP, Velká 1500 CP, Ultra 2500 CP, Mistrovská
+  bez limitu). Liga, ve které Pokémon hodnocený není, se na kartě vůbec
+  nezobrazuje; když není hodnocený v žádné lize, ukáže se místo lig jen
+  stručná poznámka:
   - pořadí a skóre v žebříčku PvPoke (pokud se žebříčky podaří načíst),
   - **hvězdičkové hodnocení ligy** (0–5 ★ podle skóre PvPoke, se slovním
     stupněm od „Nevhodné“ po „Absolutní špička“) a **graf rolí v týmu** –
     sloupce vedoucí / střídač / zavírač / útočník z dílčích skóre PvPoke,
     nejsilnější role je zvýrazněná,
+  - **top 3 ideální IV kombinace** s levelem, CP a příznakem, zda jsou
+    potřeba XL bonbóny (level nad 40) — tabulka ideálních IV je v bloku
+    ligy na prvním místě, hned za hodnocením a ještě před nejlepšími
+    útoky. Pro Mistrovskou ligu je ideál 15/15/15 na levelu 51,
+  - nejlepší útoky z pole `moveset` v žebříčcích PvPoke pro danou ligu
+    (rychlý útok + až dva nabité). Když žebříček dané ligy moveset
+    neobsahuje, použije se moveset z jiné ligy nebo ze skupin PvPoke;
+    samotný výpis všech dostupných útoků Pokémona se nezobrazuje),
   - **grafy vlastností útoků** místo textových popisů: u rychlého útoku
     sloupce energie/tah a poškození/tah, u nabitých síla a cena v energii
     (počítáno z PvP parametrů v gamemasteru PvPoke), plus odznaky STAB
-    a efektů na statistiky (např. ↓ útok soupeře),
-  - nejlepší útoky z pole `moveset` v žebříčcích PvPoke pro danou ligu
-    (rychlý útok + až dva nabité). Když Pokémon v žebříčku dané ligy není,
-    použije se jeho moveset z jiné ligy nebo ze skupin PvPoke; samotný výpis
-    všech dostupných útoků Pokémona se nezobrazuje),
-  - top 3 ideální IV kombinace s levelem, CP a příznakem, zda jsou potřeba
-    XL bonbóny (level nad 40). Pro Mistrovskou ligu je ideál 15/15/15 na levelu 51.
+    a efektů na statistiky (např. ↓ útok soupeře).
 - **IV kalkulačka**: po výběru Pokémona zadej IV (útok/obrana/výdrž 0–15) a ligu
   — ukáže pořadí kombinace ze všech 4096, nejlepší level, CP a součin statistik.
 
