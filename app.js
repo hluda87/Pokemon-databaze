@@ -81,17 +81,49 @@ function rankAllIVs(base, cap) {
   return list;
 }
 
-// Pořadí dané IV kombinace: 1 + počet kombinací s vyšším součinem statistik.
-function rankOfIV(base, iv, cap) {
-  var list = rankAllIVs(base, cap);
+// Pořadí dané IV kombinace vůči už seřazenému seznamu všech kombinací:
+// 1 + počet kombinací s vyšším součinem statistik.
+function rankFromList(list, base, iv, cap) {
   var mine = bestLevel(base, iv, cap);
-  if (!mine) return { list: list, mine: null, rank: null };
+  if (!mine) return { mine: null, rank: null };
   var rank = 1;
   for (var i = 0; i < list.length; i++) {
     if (list[i].product > mine.product + 1e-9) rank++;
     else break;
   }
-  return { list: list, mine: mine, rank: rank };
+  return { mine: mine, rank: rank };
+}
+
+// Pořadí dané IV kombinace: 1 + počet kombinací s vyšším součinem statistik.
+function rankOfIV(base, iv, cap) {
+  var list = rankAllIVs(base, cap);
+  var r = rankFromList(list, base, iv, cap);
+  return { list: list, mine: r.mine, rank: r.rank };
+}
+
+// Srovnání až tří různých IV kombinací pro stejnou ligu. Seznam všech
+// 4096 kombinací se počítá jen jednou a každá varianta se vůči němu jen
+// zařadí. Výsledek drží pořadí variant, jak je uživatel zadal, a u každé
+// uvádí rozdíl součinu statistik oproti nejlepší z nich.
+var COMPARE_LIMIT = 3;
+function compareIVs(base, ivs, cap) {
+  var list = rankAllIVs(base, cap);
+  var results = ivs.slice(0, COMPARE_LIMIT).map(function (iv) {
+    var r = rankFromList(list, base, iv, cap);
+    return { iv: iv.slice(), mine: r.mine, rank: r.rank, isBest: false, diff: null, diffPct: null };
+  });
+  var bestProduct = null;
+  results.forEach(function (r) {
+    if (r.mine && (bestProduct === null || r.mine.product > bestProduct)) bestProduct = r.mine.product;
+  });
+  results.forEach(function (r) {
+    if (r.mine && bestProduct !== null) {
+      r.diff = r.mine.product - bestProduct;
+      r.diffPct = bestProduct > 0 ? r.diff / bestProduct * 100 : 0;
+      r.isBest = Math.abs(r.diff) < 1e-9;
+    }
+  });
+  return { list: list, results: results, bestProduct: bestProduct };
 }
 
 // ---------- Názvy typů česky ----------
@@ -578,6 +610,60 @@ function initSearch() {
   document.getElementById('search').addEventListener('input', applySearch);
   document.getElementById('loadMore').addEventListener('click', function () { renderGrid(false); });
   document.getElementById('calcBtn').addEventListener('click', runCalculator);
+  initCompareSets();
+}
+
+// ---------- Srovnání v IV kalkulačce: až tři varianty ----------
+// Varianta 1 je vždy zobrazená, varianty 2 a 3 se přidávají tlačítkem
+// „Přidat srovnání“ (nejvýš tři celkem) a dají se zase odebrat.
+function calcSetVisible(n) {
+  var el = document.getElementById('calcSet' + n);
+  return !!el && el.style.display !== 'none';
+}
+
+function updateAddCompareBtn() {
+  var btn = document.getElementById('addCompareBtn');
+  if (!btn) return;
+  btn.style.display = (calcSetVisible(2) && calcSetVisible(3)) ? 'none' : '';
+}
+
+function initCompareSets() {
+  var addBtn = document.getElementById('addCompareBtn');
+  if (addBtn) {
+    addBtn.addEventListener('click', function () {
+      for (var n = 2; n <= COMPARE_LIMIT; n++) {
+        if (!calcSetVisible(n)) {
+          document.getElementById('calcSet' + n).style.display = '';
+          break;
+        }
+      }
+      updateAddCompareBtn();
+    });
+  }
+  document.querySelectorAll('.calc-remove').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var el = document.getElementById('calcSet' + btn.dataset.removeSet);
+      if (el) el.style.display = 'none';
+      updateAddCompareBtn();
+    });
+  });
+  updateAddCompareBtn();
+}
+
+// Přečte IV jedné varianty; vrací null a zapíše chybovou hlášku, když
+// některá hodnota není v rozsahu 0–15.
+function readVariantIV(n, out) {
+  var suffix = n === 1 ? '' : String(n);
+  var iv = [
+    parseInt(document.getElementById('ivAtk' + suffix).value, 10),
+    parseInt(document.getElementById('ivDef' + suffix).value, 10),
+    parseInt(document.getElementById('ivSta' + suffix).value, 10)
+  ];
+  if (iv.some(function (v) { return isNaN(v) || v < 0 || v > 15; })) {
+    out.textContent = 'Varianta ' + n + ': zadej IV hodnoty od 0 do 15.';
+    return null;
+  }
+  return iv;
 }
 
 function runCalculator() {
@@ -586,26 +672,70 @@ function runCalculator() {
     out.textContent = 'Nejdřív vyber Pokémona v seznamu výše.';
     return;
   }
-  var a = parseInt(document.getElementById('ivAtk').value, 10);
-  var d = parseInt(document.getElementById('ivDef').value, 10);
-  var s = parseInt(document.getElementById('ivSta').value, 10);
   var cap = parseFloat(document.getElementById('calcLeague').value);
-  if ([a, d, s].some(function (v) { return isNaN(v) || v < 0 || v > 15; })) {
-    out.textContent = 'Zadej IV hodnoty od 0 do 15.';
+  var variants = [];
+  for (var n = 1; n <= COMPARE_LIMIT; n++) {
+    if (n > 1 && !calcSetVisible(n)) continue;
+    var iv = readVariantIV(n, out);
+    if (!iv) return;
+    variants.push({ n: n, iv: iv });
+  }
+
+  // Jedna varianta: původní stručný výsledek.
+  if (variants.length === 1) {
+    var res = rankOfIV(selected.baseStats, variants[0].iv, cap);
+    if (!res.mine) {
+      out.innerHTML = 'Kombinace ' + variants[0].iv.join('/') + ' se ani na levelu 1 nevejde pod limit ' +
+        (cap === Infinity ? '' : cap + ' CP') + '.';
+      return;
+    }
+    var xl = res.mine.level > 40 ? ' <span class="xl">(potřeba XL bonbóny)</span>' : '';
+    out.innerHTML = '<strong>' + esc(selected.speciesName) + ' ' + variants[0].iv.join('/') + '</strong>: ' +
+      'pořadí <strong>#' + res.rank + '</strong> ze ' + res.list.length.toLocaleString('cs-CZ') +
+      ' kombinací · nejlepší level <strong>' + res.mine.level + '</strong>' + xl +
+      ' · CP <strong>' + res.mine.cp + '</strong>' +
+      ' · součin statistik <strong>' + Math.round(res.mine.product).toLocaleString('cs-CZ') + '</strong>.';
     return;
   }
-  var res = rankOfIV(selected.baseStats, [a, d, s], cap);
-  if (!res.mine) {
-    out.innerHTML = 'Kombinace ' + [a, d, s].join('/') + ' se ani na levelu 1 nevejde pod limit ' +
-      (cap === Infinity ? '' : cap + ' CP') + '.';
-    return;
+
+  // Dvě až tři varianty: srovnávací tabulka, nejlepší řádek zvýrazněný.
+  var cmp = compareIVs(selected.baseStats, variants.map(function (v) { return v.iv; }), cap);
+  var total = cmp.list.length.toLocaleString('cs-CZ');
+  var bestNames = [];
+  cmp.results.forEach(function (r, i) { if (r.isBest) bestNames.push('Varianta ' + variants[i].n); });
+  var html = '<p><strong>' + esc(selected.speciesName) + '</strong> – srovnání ' + cmp.results.length +
+    ' variant (ze ' + total + ' kombinací): ';
+  html += bestNames.length
+    ? 'nejlepší je <strong>' + bestNames.join(' a ') + '</strong>.</p>'
+    : 'žádná z variant se nevejde pod limit ligy.</p>';
+  html += '<table><tr><th>Varianta</th><th>IV (útok/obrana/výdrž)</th><th>Pořadí</th><th>Level</th><th>CP</th><th>Součin statistik</th><th>Oproti nejlepší</th></tr>';
+  cmp.results.forEach(function (r, i) {
+    var label = 'Varianta ' + variants[i].n + (r.isBest ? '<span class="best-badge">nejlepší</span>' : '');
+    if (!r.mine) {
+      html += '<tr><td>' + label + '</td><td>' + r.iv.join('/') + '</td>' +
+        '<td colspan="5">nevejde se ani na levelu 1 pod limit ' + cap + ' CP</td></tr>';
+      return;
+    }
+    var xlMark = r.mine.level > 40 ? ' <span class="xl">(XL)</span>' : '';
+    var diffTxt = r.isBest ? '–' :
+      Math.round(r.diff).toLocaleString('cs-CZ') + ' (' + fmtNum(r.diffPct) + ' %)';
+    html += '<tr' + (r.isBest ? ' class="best-row"' : '') + '><td>' + label + '</td><td>' + r.iv.join('/') + '</td>' +
+      '<td>#' + r.rank + '</td><td>' + r.mine.level + xlMark + '</td><td>' + r.mine.cp + '</td>' +
+      '<td>' + Math.round(r.mine.product).toLocaleString('cs-CZ') + '</td><td>' + diffTxt + '</td></tr>';
+  });
+  html += '</table>';
+  if (cmp.bestProduct) {
+    html += '<div style="margin-top:10px"><p style="margin:2px 0"><strong>Součin statistik v porovnání</strong> (nejlepší = 100 %):</p>';
+    cmp.results.forEach(function (r, i) {
+      if (!r.mine) return;
+      html += meterRow('Varianta ' + variants[i].n + ' · ' + r.iv.join('/'),
+        r.mine.product / cmp.bestProduct * 100,
+        Math.round(r.mine.product).toLocaleString('cs-CZ'),
+        r.isBest ? 'role-best' : 'power');
+    });
+    html += '</div>';
   }
-  var xl = res.mine.level > 40 ? ' <span class="xl">(potřeba XL bonbóny)</span>' : '';
-  out.innerHTML = '<strong>' + esc(selected.speciesName) + ' ' + [a, d, s].join('/') + '</strong>: ' +
-    'pořadí <strong>#' + res.rank + '</strong> ze ' + res.list.length.toLocaleString('cs-CZ') +
-    ' kombinací · nejlepší level <strong>' + res.mine.level + '</strong>' + xl +
-    ' · CP <strong>' + res.mine.cp + '</strong>' +
-    ' · součin statistik <strong>' + Math.round(res.mine.product).toLocaleString('cs-CZ') + '</strong>.';
+  out.innerHTML = html;
 }
 
 function init() {
@@ -653,5 +783,5 @@ if (typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { CPM: CPM, cpFor: cpFor, productFor: productFor, bestLevel: bestLevel, rankAllIVs: rankAllIVs, rankOfIV: rankOfIV };
+  module.exports = { CPM: CPM, cpFor: cpFor, productFor: productFor, bestLevel: bestLevel, rankAllIVs: rankAllIVs, rankOfIV: rankOfIV, compareIVs: compareIVs, COMPARE_LIMIT: COMPARE_LIMIT };
 }

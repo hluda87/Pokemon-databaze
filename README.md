@@ -43,6 +43,10 @@ Statická webová aplikace (čistý HTML/CSS/JS, žádný build krok). Stačí o
     a efektů na statistiky (např. ↓ útok soupeře).
 - **IV kalkulačka**: po výběru Pokémona zadej IV (útok/obrana/výdrž 0–15) a ligu
   — ukáže pořadí kombinace ze všech 4096, nejlepší level, CP a součin statistik.
+  Tlačítkem „Přidat srovnání“ lze porovnat až tři různé IV kombinace najednou
+  (liga je pro všechny společná): výsledek je srovnávací tabulka se zvýrazněnou
+  nejlepší variantou, rozdílem součinu statistik oproti nejlepší a sloupcovým
+  porovnáním součinů; přidané varianty jdou zase odebrat.
 
 ## Jak se počítají ideální IV
 
