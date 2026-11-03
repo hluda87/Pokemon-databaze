@@ -3,6 +3,11 @@
 Statická webová aplikace (čistý HTML/CSS/JS, žádný build krok). Stačí otevřít
 `index.html` v prohlížeči — nebo soubory nasadit na libovolný statický hosting.
 
+Ikona aplikace (lupa nad Pokéballem na modrém pozadí, návrh č. 4 vybraný
+uživatelem 3. 11. 2026) je v souborech `icon-512.png` a `icon-192.png`
+a je v `index.html` zapojená jako favicon i apple-touch-icon pro přidání
+stránky na plochu telefonu.
+
 ## Co aplikace umí
 
 - **Vyhledávání** konkrétního Pokémona podle jména (část názvu, bez rozlišení
