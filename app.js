@@ -2,6 +2,7 @@
 // Data se načítají z otevřených dat PvPoke, obrázky z PokeAPI sprites.
 
 var PVPOKE_BASE = 'https://raw.githubusercontent.com/pvpoke/pvpoke/master/src/data/';
+var POGOAPI_BASE = 'https://pogoapi.net/api/v1/';
 var SPRITE_BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
 var ARTWORK_BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/';
 
@@ -158,6 +159,10 @@ var moveNames = {};
 var moveData = {}; // moveId -> { name, type, power, energy, energyGain, turns, buffs, buffTarget, buffApplyChance }
 var groups = {};    // league key -> { speciesId: { fastMove, chargedMoves } }
 var rankings = {};  // league key -> { speciesId: { rank, score, moveset, scores } }
+var pveFast = {};   // normalizovaný název útoku -> PvE parametry rychlého útoku (gymy/raidy)
+var pveCharged = {}; // normalizovaný název útoku -> PvE parametry nabitého útoku (gymy/raidy)
+var raidMax = null; // { dps, tdo } nejlepší hodnoty přes všechny Pokémony, počítá se po načtení dat
+var raidCache = {}; // speciesId -> výsledek bestRaidSet (nebo null)
 var selected = null;
 var filtered = [];
 var shownCount = 0;
@@ -483,6 +488,163 @@ function chargedMoveHtml(p, id, name) {
   return html + '</div>';
 }
 
+// ---------- Gymy a raidy ----------
+// Hodnocení pro gymy a raidy se počítá z PvE parametrů útoků (PogoAPI:
+// síla, trvání a energie v reálném čase, ne tahové PvP hodnoty z PvPoke).
+// Pro každého Pokémona se z jeho sad útoků (gamemaster PvPoke) vybere
+// kombinace rychlý + nabitý útok s nejvyšším poškozením za sekundu (DPS)
+// na levelu 40 s IV 15/15/15 proti neutrálnímu obránci (obrana 150),
+// včetně STAB bonusu a bonusu +20 % útoku u Shadow forem. Hvězdičky se
+// odvozují z DPS vůči nejlepšímu Pokémonovi stejně jako u lig (skóre/20).
+var RAID_CPM = CPM[78]; // level 40
+var RAID_DEFENDER_DEF = (150 + 15) * RAID_CPM;
+
+// PogoAPI píše názvy jinak než PvPoke („Weather Ball Fire" místo
+// „Weather Ball (Fire)", „Vice Grip" místo „Vise Grip"), proto se názvy
+// porovnávají v normalizovaném tvaru a s pár ručními přezdívkami.
+var PVE_NAME_ALIASES = { 'vise grip': 'vice grip' };
+
+function normalizeMoveName(name) {
+  var n = String(name || '').toLowerCase().replace(/[()]/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return PVE_NAME_ALIASES[n] || n;
+}
+
+// Základ názvu bez koncového typu („hidden power bug" -> „hidden power").
+function baseMoveName(norm) {
+  var parts = norm.split(' ');
+  if (parts.length > 1 && TYPE_NAMES[parts[parts.length - 1]]) {
+    return parts.slice(0, -1).join(' ');
+  }
+  return norm;
+}
+
+function buildPveMap(arr) {
+  var map = {};
+  (Array.isArray(arr) ? arr : []).forEach(function (m) {
+    if (!m || !m.name) return;
+    var norm = normalizeMoveName(m.name);
+    var type = String(m.type || '').toLowerCase();
+    if (!map[norm + '|' + type]) map[norm + '|' + type] = m;
+    if (!map[norm]) map[norm] = m;
+    var base = baseMoveName(norm);
+    if (base !== norm && !map[base]) map[base] = m;
+  });
+  return map;
+}
+
+function pveLookup(map, pvpMove) {
+  if (!pvpMove || !pvpMove.name) return null;
+  var norm = normalizeMoveName(pvpMove.name);
+  var type = String(pvpMove.type || '').toLowerCase();
+  return map[norm + '|' + type] || map[norm] || map[baseMoveName(norm) + '|' + type] ||
+    map[baseMoveName(norm)] || null;
+}
+
+function raidDamage(power, atkEff, stab) {
+  return Math.floor(0.5 * power * (atkEff / RAID_DEFENDER_DEF) * stab) + 1;
+}
+
+// Nejlepší kombinace útoků pro gymy/raidy a její DPS/TDO. Vrací null,
+// když se pro Pokémona žádná kombinace nedá spočítat (chybí PvE data).
+function bestRaidSet(p) {
+  if (Object.prototype.hasOwnProperty.call(raidCache, p.speciesId)) return raidCache[p.speciesId];
+  var result = null;
+  if (Object.keys(pveFast).length && Object.keys(pveCharged).length) {
+    var shadow = (p.tags || []).indexOf('shadow') !== -1;
+    var atkEff = (p.baseStats.atk + 15) * RAID_CPM * (shadow ? 1.2 : 1);
+    var best = null;
+    (p.fastMoves || []).forEach(function (fid) {
+      var fm = moveData[fid];
+      var pf = pveLookup(pveFast, fm);
+      if (!fm || !pf || !(pf.energy_delta > 0)) return;
+      var fStab = (p.types || []).indexOf(fm.type) !== -1 ? 1.2 : 1;
+      var fDmg = raidDamage(pf.power, atkEff, fStab);
+      var fTime = pf.duration / 1000;
+      (p.chargedMoves || []).forEach(function (cid) {
+        var cm = moveData[cid];
+        var pc = pveLookup(pveCharged, cm);
+        if (!cm || !pc) return;
+        var cost = -pc.energy_delta;
+        if (!(cost > 0)) return;
+        var cStab = (p.types || []).indexOf(cm.type) !== -1 ? 1.2 : 1;
+        var cDmg = raidDamage(pc.power, atkEff, cStab);
+        var nFast = Math.ceil(cost / pf.energy_delta);
+        var cycleTime = nFast * fTime + pc.duration / 1000;
+        var dps = (nFast * fDmg + cDmg) / cycleTime;
+        if (!best || dps > best.dps) {
+          best = {
+            fastId: fid, chargedId: cid, dps: dps,
+            fastDmgPerSec: fDmg / fTime, fastEnergyPerSec: pf.energy_delta / fTime,
+            chargedPower: pc.power, chargedCost: cost
+          };
+        }
+      });
+    });
+    if (best) {
+      var defEff = (p.baseStats.def + 15) * RAID_CPM / (shadow ? 1.2 : 1);
+      var hpEff = (p.baseStats.hp + 15) * RAID_CPM;
+      best.tdo = best.dps * defEff * hpEff;
+      result = best;
+    }
+  }
+  raidCache[p.speciesId] = result;
+  return result;
+}
+
+function computeRaidMax() {
+  raidMax = null;
+  raidCache = {};
+  if (!Object.keys(pveFast).length || !Object.keys(pveCharged).length) return;
+  var dps = 0, tdo = 0;
+  pokemon.forEach(function (p) {
+    var r = bestRaidSet(p);
+    if (r) {
+      if (r.dps > dps) dps = r.dps;
+      if (r.tdo > tdo) tdo = r.tdo;
+    }
+  });
+  if (dps > 0) raidMax = { dps: dps, tdo: tdo };
+}
+
+function raidFastMoveHtml(p, raid) {
+  var m = moveData[raid.fastId];
+  var html = '<div class="move"><strong>' + esc(moveName(raid.fastId)) + '</strong> (rychlý útok)' +
+    stabBadge(p, m) + buffBadge(m);
+  html += meterRow('Poškození / s', raid.fastDmgPerSec / 25 * 100, fmtNum(raid.fastDmgPerSec), 'dmg');
+  html += meterRow('Energie / s', raid.fastEnergyPerSec / 15 * 100, fmtNum(raid.fastEnergyPerSec), 'energy');
+  return html + '</div>';
+}
+
+function raidChargedMoveHtml(p, raid) {
+  var m = moveData[raid.chargedId];
+  var html = '<div class="move"><strong>' + esc(moveName(raid.chargedId)) + '</strong> (nabitý útok)' +
+    stabBadge(p, m) + buffBadge(m);
+  var costCls = raid.chargedCost <= 40 ? 'cost-low' : (raid.chargedCost <= 60 ? 'cost-mid' : 'cost-high');
+  html += meterRow('Síla', raid.chargedPower / 250 * 100, String(raid.chargedPower), 'power');
+  html += meterRow('Cena (energie)', raid.chargedCost, String(raid.chargedCost), costCls);
+  return html + '</div>';
+}
+
+function raidBlockHtml(p) {
+  var raid = bestRaidSet(p);
+  if (!raid || !raidMax) return '';
+  var score = raid.dps / raidMax.dps * 100;
+  var si = starsInfo(score);
+  var html = '<div class="league"><h3>Gymy a raidy</h3>';
+  html += '<p>Hodnocení: ' +
+    (si ? '<span class="stars">' + si.stars + '</span> <strong>' + si.label + '</strong> · ' : '') +
+    'poškození za sekundu <strong>' + fmtNum(raid.dps) + '</strong></p>';
+  html += '<div style="margin:6px 0">' +
+    meterRow('Poškození / s', score, fmtNum(raid.dps), 'power') +
+    meterRow('Celkové poškození', raid.tdo / raidMax.tdo * 100,
+      Math.round(raid.tdo / raidMax.tdo * 100) + ' % nejlepšího', 'role') +
+    '</div>';
+  html += '<p style="margin-top:8px"><strong>Nejlepší útoky:</strong></p>' +
+    raidFastMoveHtml(p, raid) + raidChargedMoveHtml(p, raid);
+  return html + '</div>';
+}
+
 // ---------- Přepínač vývojových fází ----------
 // Řada se načítá z evolučních řetězců PokeAPI (stejný zdroj jako obrázky).
 // Fáze jdou zleva doprava podle stupně vývoje, u větvení podle čísla v Pokédexu.
@@ -596,7 +758,9 @@ function showDetail(p) {
       '<table><tr><th>Ideální IV (útok/obrana/výdrž)</th><th>Level</th><th>CP</th><th>Součin statistik</th></tr>' +
       rows + '</table>' + movesHtml + '</div>';
   });
-  if (!shownLeagues) {
+  var raidHtml = raidBlockHtml(p);
+  html += raidHtml;
+  if (!shownLeagues && !raidHtml) {
     html += '<p style="color:var(--muted);font-size:14px;margin-top:12px">Tento Pokémon není hodnocený v žádné lize.</p>';
   }
   el.innerHTML = html;
@@ -747,13 +911,19 @@ function init() {
       .then(function (arr) { return rankingMap(arr); })
       .catch(function () { return null; });
   });
+  // PvE data pro gymy/raidy jsou také nepovinná: když se nenačtou,
+  // karta prostě blok „Gymy a raidy" nezobrazí.
+  var pveLoads = [
+    fetchJson(POGOAPI_BASE + 'fast_moves.json').catch(function () { return null; }),
+    fetchJson(POGOAPI_BASE + 'charged_moves.json').catch(function () { return null; })
+  ];
   var core = Promise.all([
     fetchJson(PVPOKE_BASE + 'gamemaster/pokemon.json'),
     fetchJson(PVPOKE_BASE + 'gamemaster/moves.json'),
     fetchJson(PVPOKE_BASE + 'groups/great.json'),
     fetchJson(PVPOKE_BASE + 'groups/ultra.json'),
     fetchJson(PVPOKE_BASE + 'groups/master.json')
-  ].concat(rankingLoads));
+  ].concat(rankingLoads).concat(pveLoads));
   core.then(function (data) {
     pokemon = data[0];
     (Array.isArray(data[1]) ? data[1] : []).forEach(function (m) {
@@ -768,6 +938,10 @@ function init() {
     LEAGUES.forEach(function (league, i) {
       if (data[5 + i]) rankings[league.key] = data[5 + i];
     });
+    var pveBase = 5 + LEAGUES.length;
+    if (data[pveBase]) pveFast = buildPveMap(data[pveBase]);
+    if (data[pveBase + 1]) pveCharged = buildPveMap(data[pveBase + 1]);
+    computeRaidMax();
     status.textContent = 'Data načtena: ' + pokemon.length.toLocaleString('cs-CZ') + ' záznamů.';
     initSearch();
     renderHistory();
@@ -783,5 +957,5 @@ if (typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { CPM: CPM, cpFor: cpFor, productFor: productFor, bestLevel: bestLevel, rankAllIVs: rankAllIVs, rankOfIV: rankOfIV, compareIVs: compareIVs, COMPARE_LIMIT: COMPARE_LIMIT };
+  module.exports = { CPM: CPM, cpFor: cpFor, productFor: productFor, bestLevel: bestLevel, rankAllIVs: rankAllIVs, rankOfIV: rankOfIV, compareIVs: compareIVs, COMPARE_LIMIT: COMPARE_LIMIT, buildPveMap: buildPveMap, pveLookup: pveLookup, bestRaidSet: bestRaidSet, computeRaidMax: computeRaidMax, raidBlockHtml: raidBlockHtml, starsInfo: starsInfo, _setData: function (d) { pokemon = d.pokemon || []; moveData = d.moveData || {}; moveNames = d.moveNames || {}; pveFast = d.pveFast || {}; pveCharged = d.pveCharged || {}; raidCache = {}; raidMax = null; } };
 }

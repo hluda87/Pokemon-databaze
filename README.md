@@ -46,6 +46,15 @@ stránky na plochu telefonu.
     sloupce energie/tah a poškození/tah, u nabitých síla a cena v energii
     (počítáno z PvP parametrů v gamemasteru PvPoke), plus odznaky STAB
     a efektů na statistiky (např. ↓ útok soupeře).
+- **Hodnocení pro gymy a raidy** (blok „Gymy a raidy“ na konci karty, pod
+  ligami): hvězdičkové hodnocení 0–5 ★ se stejnými slovními stupni jako
+  u lig, sloupce poškození za sekundu (DPS) a celkového poškození (TDO,
+  jako % nejlepšího Pokémona) a **nejlepší útoky pro raidy** – rychlý
+  a jeden nabitý útok s grafy vlastností z PvE parametrů (u rychlého
+  poškození/s a energie/s, u nabitého síla a cena v energii) a odznaky
+  STAB a efektů. Blok se ukazuje jen když se podaří načíst PvE data
+  a pro daného Pokémona jde kombinace spočítat; samotný výpis všech
+  dostupných útoků se ani tady nezobrazuje.
 - **IV kalkulačka**: po výběru Pokémona zadej IV (útok/obrana/výdrž 0–15) a ligu
   — ukáže pořadí kombinace ze všech 4096, nejlepší level, CP a součin statistik.
   Tlačítkem „Přidat srovnání“ lze porovnat až tři různé IV kombinace najednou
@@ -67,6 +76,32 @@ CPM je tabulka Combat Power Multiplieru pro levely 1–51, převzatá z PvPoke
 (soubor `src/js/pokemon/Pokemon.js`): level 40 = 0,7903, level 50 = 0,8403,
 level 51 = 0,8453.
 
+## Jak se počítá hodnocení pro gymy a raidy
+
+Z celé sady útoků Pokémona (gamemaster PvPoke) se pro každou dvojici
+rychlý + nabitý útok spočítá průměrné poškození za sekundu (DPS) v cyklu
+„nabíjení rychlými útoky → nabitý útok“ a vybere se nejlepší dvojice.
+Počítá se pro level 40 a IV 15/15/15 standardním vzorcem poškození
+Pokémon GO proti neutrálnímu obránci (efektivní obrana z obrany 150):
+
+- poškození zásahu = floor(0,5 × síla útoku × efektivní útok útočníka /
+  efektivní obrana obránce × STAB) + 1, kde STAB = 1,2 při shodě typu
+  útoku s typem Pokémona; u Shadow forem má útočník útok × 1,2 a obranu
+  ÷ 1,2,
+- PvE parametry útoků (síla, trvání v sekundách, energie) pocházejí
+  z PogoAPI (`fast_moves.json`, `charged_moves.json`) — liší se od
+  tahových PvP hodnot v gamemasteru PvPoke. Názvy útoků se mezi zdroji
+  párují v normalizovaném tvaru (lišit se mohou zápisy jako „Weather
+  Ball (Fire)“ vs. „Weather Ball Fire“),
+- hvězdičky = DPS vůči nejvyššímu DPS ze všech Pokémonů, přepočtené
+  stejně jako u lig (skóre 0–100, hvězdy = skóre / 20). Celkové
+  poškození (TDO) = DPS × efektivní obrana × efektivní výdrž, uvádí se
+  jako procento nejlepšího Pokémona.
+
+Jde o neutrální odhad bez konkrétního raid bosse (bez typové
+efektivity proti obránci a bez počasí); proti konkrétnímu bossovi se
+pořadí útočníků podle typů může lišit.
+
 ## Zdroje dat (načítají se při otevření stránky)
 
 - PvPoke, otevřená data z repozitáře `pvpoke/pvpoke`:
@@ -76,6 +111,9 @@ level 51 = 0,8453.
   `rankings-10000.json` a `src/data/rankings/little/overall/rankings-500.json`
   (žebříčky obsahují i nejlepší útoky v poli `moveset`; jsou nepovinné — při
   chybě načtení se pořadí/skóre nezobrazí a aplikace funguje dál).
+- PogoAPI (`pogoapi.net/api/v1/fast_moves.json` a `charged_moves.json`) —
+  PvE parametry útoků pro hodnocení gymů a raidů. Také nepovinné: při
+  chybě načtení se blok „Gymy a raidy“ na kartě jen nezobrazí.
 - Obrázky: PokeAPI sprites
   (`raw.githubusercontent.com/PokeAPI/sprites/...`). Chybějící obrázek se
   skryje, aplikace nespadne.
