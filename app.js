@@ -102,12 +102,12 @@ function rankOfIV(base, iv, cap) {
   return { list: list, mine: r.mine, rank: r.rank };
 }
 
-// Srovnání až tří různých IV kombinací pro stejnou ligu. Seznam všech
+// Srovnání až deseti různých IV kombinací pro stejnou ligu. Seznam všech
 // 4096 kombinací se počítá jen jednou a každá varianta se vůči němu jen
 // zařadí. Výsledek drží pořadí variant, jak je uživatel zadal, a označuje
 // nejlepší z nich (vnitřně podle součinu statistik – ten se v aplikaci
 // nikde nezobrazuje, slouží jen k určení pořadí kombinací).
-var COMPARE_LIMIT = 3;
+var COMPARE_LIMIT = 10;
 function markBest(results) {
   var bestProduct = null;
   results.forEach(function (r) {
@@ -798,9 +798,9 @@ function initSearch() {
   initCompareSets();
 }
 
-// ---------- Srovnání v IV kalkulačce: až tři varianty ----------
-// Varianta 1 je vždy zobrazená, varianty 2 a 3 se přidávají tlačítkem
-// „Přidat srovnání“ (nejvýš tři celkem) a dají se zase odebrat.
+// ---------- Srovnání v IV kalkulačce: až deset variant ----------
+// Varianta 1 je vždy zobrazená, varianty 2 až 10 se přidávají tlačítkem
+// „Přidat srovnání“ (nejvýš deset celkem) a dají se zase odebrat.
 function calcSetVisible(n) {
   var el = document.getElementById('calcSet' + n);
   return !!el && el.style.display !== 'none';
@@ -809,7 +809,11 @@ function calcSetVisible(n) {
 function updateAddCompareBtn() {
   var btn = document.getElementById('addCompareBtn');
   if (!btn) return;
-  btn.style.display = (calcSetVisible(2) && calcSetVisible(3)) ? 'none' : '';
+  var allVisible = true;
+  for (var n = 2; n <= COMPARE_LIMIT; n++) {
+    if (!calcSetVisible(n)) { allVisible = false; break; }
+  }
+  btn.style.display = allVisible ? 'none' : '';
 }
 
 function initCompareSets() {
@@ -890,7 +894,7 @@ function runCalculator() {
     return;
   }
 
-  // Dvě až tři varianty: pro každou ligu vlastní srovnávací tabulka,
+  // Dvě a více variant: pro každou ligu vlastní srovnávací tabulka,
   // nejlepší varianta se zvýrazní v každé lize zvlášť.
   var out2 = '<p><strong>' + esc(selected.speciesName) + '</strong> – srovnání ' + variants.length +
     ' variant pro všechny ligy:</p>';

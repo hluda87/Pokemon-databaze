@@ -118,7 +118,7 @@
 
   <section class="panel">
     <h2>IV kalkulačka</h2>
-    <p style="color:var(--muted);font-size:14px">Vyber nejdřív Pokémona v seznamu, pak zadej jeho IV. Kalkulačka ukáže výsledky pro všechny ligy najednou – jak dobré tvé IV je v porovnání se všemi 4096 kombinacemi. Tlačítkem „Přidat srovnání“ můžeš porovnat až tři různé kombinace IV najednou; nejlepší varianta se v každé lize zvýrazní.</p>
+    <p style="color:var(--muted);font-size:14px">Vyber nejdřív Pokémona v seznamu, pak zadej jeho IV. Kalkulačka ukáže výsledky pro všechny ligy najednou – jak dobré tvé IV je v porovnání se všemi 4096 kombinacemi. Tlačítkem „Přidat srovnání“ můžeš porovnat až deset různých kombinací IV najednou; nejlepší varianta se v každé lize zvýrazní.</p>
     <div class="calc-sets">
       <div class="calc-set" id="calcSet1">
         <div class="calc-set-head"><h3>Varianta 1</h3></div>
@@ -142,6 +142,62 @@
           <div><label for="ivAtk3">Útok (IV)</label><input type="number" id="ivAtk3" min="0" max="15" value="15"></div>
           <div><label for="ivDef3">Obrana (IV)</label><input type="number" id="ivDef3" min="0" max="15" value="14"></div>
           <div><label for="ivSta3">Výdrž (IV)</label><input type="number" id="ivSta3" min="0" max="15" value="14"></div>
+        </div>
+      </div>
+      <div class="calc-set" id="calcSet4" style="display:none">
+        <div class="calc-set-head"><h3>Varianta 4</h3><button type="button" class="calc-remove" data-remove-set="4">Odebrat</button></div>
+        <div class="calc">
+          <div><label for="ivAtk4">Útok (IV)</label><input type="number" id="ivAtk4" min="0" max="15" value="15"></div>
+          <div><label for="ivDef4">Obrana (IV)</label><input type="number" id="ivDef4" min="0" max="15" value="15"></div>
+          <div><label for="ivSta4">Výdrž (IV)</label><input type="number" id="ivSta4" min="0" max="15" value="15"></div>
+        </div>
+      </div>
+      <div class="calc-set" id="calcSet5" style="display:none">
+        <div class="calc-set-head"><h3>Varianta 5</h3><button type="button" class="calc-remove" data-remove-set="5">Odebrat</button></div>
+        <div class="calc">
+          <div><label for="ivAtk5">Útok (IV)</label><input type="number" id="ivAtk5" min="0" max="15" value="15"></div>
+          <div><label for="ivDef5">Obrana (IV)</label><input type="number" id="ivDef5" min="0" max="15" value="15"></div>
+          <div><label for="ivSta5">Výdrž (IV)</label><input type="number" id="ivSta5" min="0" max="15" value="15"></div>
+        </div>
+      </div>
+      <div class="calc-set" id="calcSet6" style="display:none">
+        <div class="calc-set-head"><h3>Varianta 6</h3><button type="button" class="calc-remove" data-remove-set="6">Odebrat</button></div>
+        <div class="calc">
+          <div><label for="ivAtk6">Útok (IV)</label><input type="number" id="ivAtk6" min="0" max="15" value="15"></div>
+          <div><label for="ivDef6">Obrana (IV)</label><input type="number" id="ivDef6" min="0" max="15" value="15"></div>
+          <div><label for="ivSta6">Výdrž (IV)</label><input type="number" id="ivSta6" min="0" max="15" value="15"></div>
+        </div>
+      </div>
+      <div class="calc-set" id="calcSet7" style="display:none">
+        <div class="calc-set-head"><h3>Varianta 7</h3><button type="button" class="calc-remove" data-remove-set="7">Odebrat</button></div>
+        <div class="calc">
+          <div><label for="ivAtk7">Útok (IV)</label><input type="number" id="ivAtk7" min="0" max="15" value="15"></div>
+          <div><label for="ivDef7">Obrana (IV)</label><input type="number" id="ivDef7" min="0" max="15" value="15"></div>
+          <div><label for="ivSta7">Výdrž (IV)</label><input type="number" id="ivSta7" min="0" max="15" value="15"></div>
+        </div>
+      </div>
+      <div class="calc-set" id="calcSet8" style="display:none">
+        <div class="calc-set-head"><h3>Varianta 8</h3><button type="button" class="calc-remove" data-remove-set="8">Odebrat</button></div>
+        <div class="calc">
+          <div><label for="ivAtk8">Útok (IV)</label><input type="number" id="ivAtk8" min="0" max="15" value="15"></div>
+          <div><label for="ivDef8">Obrana (IV)</label><input type="number" id="ivDef8" min="0" max="15" value="15"></div>
+          <div><label for="ivSta8">Výdrž (IV)</label><input type="number" id="ivSta8" min="0" max="15" value="15"></div>
+        </div>
+      </div>
+      <div class="calc-set" id="calcSet9" style="display:none">
+        <div class="calc-set-head"><h3>Varianta 9</h3><button type="button" class="calc-remove" data-remove-set="9">Odebrat</button></div>
+        <div class="calc">
+          <div><label for="ivAtk9">Útok (IV)</label><input type="number" id="ivAtk9" min="0" max="15" value="15"></div>
+          <div><label for="ivDef9">Obrana (IV)</label><input type="number" id="ivDef9" min="0" max="15" value="15"></div>
+          <div><label for="ivSta9">Výdrž (IV)</label><input type="number" id="ivSta9" min="0" max="15" value="15"></div>
+        </div>
+      </div>
+      <div class="calc-set" id="calcSet10" style="display:none">
+        <div class="calc-set-head"><h3>Varianta 10</h3><button type="button" class="calc-remove" data-remove-set="10">Odebrat</button></div>
+        <div class="calc">
+          <div><label for="ivAtk10">Útok (IV)</label><input type="number" id="ivAtk10" min="0" max="15" value="15"></div>
+          <div><label for="ivDef10">Obrana (IV)</label><input type="number" id="ivDef10" min="0" max="15" value="15"></div>
+          <div><label for="ivSta10">Výdrž (IV)</label><input type="number" id="ivSta10" min="0" max="15" value="15"></div>
         </div>
       </div>
     </div>

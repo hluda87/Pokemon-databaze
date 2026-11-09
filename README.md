@@ -60,7 +60,7 @@ stránky na plochu telefonu.
   variantou je výsledek jedna tabulka (liga, pořadí ze všech 4096
   kombinací, level, CP). Součin statistik se v aplikaci nikde nezobrazuje
   (slouží jen vnitřně k určení pořadí kombinací).
-  Tlačítkem „Přidat srovnání“ lze porovnat až tři různé IV kombinace
+  Tlačítkem „Přidat srovnání“ lze porovnat až deset různých IV kombinací
   najednou: pro každou ligu se ukáže vlastní srovnávací tabulka (varianta,
   IV, pořadí, level, CP) a nejlepší varianta se zvýrazní v každé lize
   zvlášť; přidané varianty jdou zase odebrat. Seznamy kombinací se pro
