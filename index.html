@@ -118,7 +118,7 @@
 
   <section class="panel">
     <h2>IV kalkulačka</h2>
-    <p style="color:var(--muted);font-size:14px">Vyber nejdřív Pokémona v seznamu, pak zadej jeho IV a ligu. Kalkulačka ukáže, jak dobré tvé IV je v porovnání se všemi 4096 kombinacemi. Tlačítkem „Přidat srovnání“ můžeš porovnat až tři různé kombinace IV najednou – liga je pro všechny stejná a nejlepší varianta se ve výsledku zvýrazní.</p>
+    <p style="color:var(--muted);font-size:14px">Vyber nejdřív Pokémona v seznamu, pak zadej jeho IV. Kalkulačka ukáže výsledky pro všechny ligy najednou – jak dobré tvé IV je v porovnání se všemi 4096 kombinacemi. Tlačítkem „Přidat srovnání“ můžeš porovnat až tři různé kombinace IV najednou; nejlepší varianta se v každé lize zvýrazní.</p>
     <div class="calc-sets">
       <div class="calc-set" id="calcSet1">
         <div class="calc-set-head"><h3>Varianta 1</h3></div>
@@ -147,14 +147,6 @@
     </div>
     <button id="addCompareBtn" type="button">+ Přidat srovnání</button>
     <div class="calc-actions">
-      <div class="calc"><div><label for="calcLeague">Liga</label>
-        <select id="calcLeague">
-          <option value="500">Malá liga (500 CP)</option>
-          <option value="1500" selected>Velká liga (1500 CP)</option>
-          <option value="2500">Ultra liga (2500 CP)</option>
-          <option value="10000">Mistrovská liga (bez limitu)</option>
-        </select>
-      </div></div>
       <button id="calcBtn" type="button">Spočítat</button>
     </div>
     <div id="calcResult"></div>

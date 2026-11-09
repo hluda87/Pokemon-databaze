@@ -55,12 +55,17 @@ stránky na plochu telefonu.
   STAB a efektů. Blok se ukazuje jen když se podaří načíst PvE data
   a pro daného Pokémona jde kombinace spočítat; samotný výpis všech
   dostupných útoků se ani tady nezobrazuje.
-- **IV kalkulačka**: po výběru Pokémona zadej IV (útok/obrana/výdrž 0–15) a ligu
-  — ukáže pořadí kombinace ze všech 4096, nejlepší level, CP a součin statistik.
-  Tlačítkem „Přidat srovnání“ lze porovnat až tři různé IV kombinace najednou
-  (liga je pro všechny společná): výsledek je srovnávací tabulka se zvýrazněnou
-  nejlepší variantou, rozdílem součinu statistik oproti nejlepší a sloupcovým
-  porovnáním součinů; přidané varianty jdou zase odebrat.
+- **IV kalkulačka**: po výběru Pokémona zadej IV (útok/obrana/výdrž 0–15) —
+  výsledky se ukážou pro všechny ligy najednou, liga se nevybírá. S jednou
+  variantou je výsledek jedna tabulka (liga, pořadí ze všech 4096
+  kombinací, level, CP). Součin statistik se v aplikaci nikde nezobrazuje
+  (slouží jen vnitřně k určení pořadí kombinací).
+  Tlačítkem „Přidat srovnání“ lze porovnat až tři různé IV kombinace
+  najednou: pro každou ligu se ukáže vlastní srovnávací tabulka (varianta,
+  IV, pořadí, level, CP) a nejlepší varianta se zvýrazní v každé lize
+  zvlášť; přidané varianty jdou zase odebrat. Seznamy kombinací se pro
+  daného Pokémona a ligu počítají jen jednou a sdílí se s tabulkami
+  ideálních IV na kartě (cache), takže opakované výpočty jsou okamžité.
 
 ## Jak se počítají ideální IV
 

@@ -104,27 +104,48 @@ function rankOfIV(base, iv, cap) {
 
 // Srovnání až tří různých IV kombinací pro stejnou ligu. Seznam všech
 // 4096 kombinací se počítá jen jednou a každá varianta se vůči němu jen
-// zařadí. Výsledek drží pořadí variant, jak je uživatel zadal, a u každé
-// uvádí rozdíl součinu statistik oproti nejlepší z nich.
+// zařadí. Výsledek drží pořadí variant, jak je uživatel zadal, a označuje
+// nejlepší z nich (vnitřně podle součinu statistik – ten se v aplikaci
+// nikde nezobrazuje, slouží jen k určení pořadí kombinací).
 var COMPARE_LIMIT = 3;
-function compareIVs(base, ivs, cap) {
-  var list = rankAllIVs(base, cap);
-  var results = ivs.slice(0, COMPARE_LIMIT).map(function (iv) {
-    var r = rankFromList(list, base, iv, cap);
-    return { iv: iv.slice(), mine: r.mine, rank: r.rank, isBest: false, diff: null, diffPct: null };
-  });
+function markBest(results) {
   var bestProduct = null;
   results.forEach(function (r) {
     if (r.mine && (bestProduct === null || r.mine.product > bestProduct)) bestProduct = r.mine.product;
   });
   results.forEach(function (r) {
-    if (r.mine && bestProduct !== null) {
-      r.diff = r.mine.product - bestProduct;
-      r.diffPct = bestProduct > 0 ? r.diff / bestProduct * 100 : 0;
-      r.isBest = Math.abs(r.diff) < 1e-9;
-    }
+    if (r.mine && bestProduct !== null) r.isBest = Math.abs(r.mine.product - bestProduct) < 1e-9;
   });
-  return { list: list, results: results, bestProduct: bestProduct };
+}
+
+function compareIVs(base, ivs, cap) {
+  var list = rankAllIVs(base, cap);
+  var results = ivs.slice(0, COMPARE_LIMIT).map(function (iv) {
+    var r = rankFromList(list, base, iv, cap);
+    return { iv: iv.slice(), mine: r.mine, rank: r.rank, isBest: false };
+  });
+  markBest(results);
+  return { list: list, results: results };
+}
+
+// Seznam všech kombinací pro daného Pokémona a ligu. Sdílí cache
+// s tabulkami ideálních IV na kartě (ivCache), takže se stejný seznam
+// pro stejného Pokémona a ligu nepočítá opakovaně.
+function rankedListFor(p, cap) {
+  var key = p.speciesId + ':' + cap;
+  if (!ivCache[key]) ivCache[key] = rankAllIVs(p.baseStats, cap);
+  return ivCache[key];
+}
+
+// Srovnání variant pro konkrétního Pokémona přes sdílenou cache seznamů.
+function compareForPokemon(p, ivs, cap) {
+  var list = rankedListFor(p, cap);
+  var results = ivs.slice(0, COMPARE_LIMIT).map(function (iv) {
+    var r = rankFromList(list, p.baseStats, iv, cap);
+    return { iv: iv.slice(), mine: r.mine, rank: r.rank, isBest: false };
+  });
+  markBest(results);
+  return { list: list, results: results };
 }
 
 // ---------- Názvy typů česky ----------
@@ -343,8 +364,8 @@ function topIVs(p, league) {
 
 function ivRow(r) {
   var xl = r.level > 40 ? ' <span class="xl">(potřeba XL bonbóny)</span>' : '';
-  return '<tr><td>' + r.iv.join('/') + '</td><td>' + r.level + '</td><td>' +
-    r.cp + ' CP</td><td>' + Math.round(r.product).toLocaleString('cs-CZ') + xl + '</td></tr>';
+  return '<tr><td>' + r.iv.join('/') + '</td><td>' + r.level + xl + '</td><td>' +
+    r.cp + ' CP</td></tr>';
 }
 
 // ---------- Vykreslování ----------
@@ -755,7 +776,7 @@ function showDetail(p) {
     html += '<div class="league"><h3>' + league.label +
       (league.cap === Infinity ? '' : ' (' + league.cap + ' CP)') + '</h3>' +
       ratingHtml + note +
-      '<table><tr><th>Ideální IV (útok/obrana/výdrž)</th><th>Level</th><th>CP</th><th>Součin statistik</th></tr>' +
+      '<table><tr><th>Ideální IV</th><th>Level</th><th>CP</th></tr>' +
       rows + '</table>' + movesHtml + '</div>';
   });
   var raidHtml = raidBlockHtml(p);
@@ -836,7 +857,6 @@ function runCalculator() {
     out.textContent = 'Nejdřív vyber Pokémona v seznamu výše.';
     return;
   }
-  var cap = parseFloat(document.getElementById('calcLeague').value);
   var variants = [];
   for (var n = 1; n <= COMPARE_LIMIT; n++) {
     if (n > 1 && !calcSetVisible(n)) continue;
@@ -844,62 +864,61 @@ function runCalculator() {
     if (!iv) return;
     variants.push({ n: n, iv: iv });
   }
+  var ivs = variants.map(function (v) { return v.iv; });
 
-  // Jedna varianta: původní stručný výsledek.
+  // Výsledky se počítají pro všechny ligy najednou – výběr ligy není potřeba.
   if (variants.length === 1) {
-    var res = rankOfIV(selected.baseStats, variants[0].iv, cap);
-    if (!res.mine) {
-      out.innerHTML = 'Kombinace ' + variants[0].iv.join('/') + ' se ani na levelu 1 nevejde pod limit ' +
-        (cap === Infinity ? '' : cap + ' CP') + '.';
-      return;
-    }
-    var xl = res.mine.level > 40 ? ' <span class="xl">(potřeba XL bonbóny)</span>' : '';
-    out.innerHTML = '<strong>' + esc(selected.speciesName) + ' ' + variants[0].iv.join('/') + '</strong>: ' +
-      'pořadí <strong>#' + res.rank + '</strong> ze ' + res.list.length.toLocaleString('cs-CZ') +
-      ' kombinací · nejlepší level <strong>' + res.mine.level + '</strong>' + xl +
-      ' · CP <strong>' + res.mine.cp + '</strong>' +
-      ' · součin statistik <strong>' + Math.round(res.mine.product).toLocaleString('cs-CZ') + '</strong>.';
+    var html = '<p><strong>' + esc(selected.speciesName) + ' ' + variants[0].iv.join('/') +
+      '</strong> – výsledky pro všechny ligy:</p>';
+    html += '<table><tr><th>Liga</th><th>Pořadí</th><th>Level</th><th>CP</th></tr>';
+    LEAGUES.forEach(function (league) {
+      var cmp = compareForPokemon(selected, ivs, league.cap);
+      var r = cmp.results[0];
+      var label = league.label + (league.cap === Infinity ? ' (bez limitu)' : ' (' + league.cap + ' CP)');
+      if (!r.mine) {
+        html += '<tr><td>' + label + '</td><td colspan="3">nevejde se ani na levelu 1 pod limit ' +
+          league.cap + ' CP</td></tr>';
+        return;
+      }
+      var xl = r.mine.level > 40 ? ' <span class="xl">(potřeba XL bonbóny)</span>' : '';
+      html += '<tr><td>' + label + '</td><td>#' + r.rank + ' ze ' +
+        cmp.list.length.toLocaleString('cs-CZ') + '</td><td>' + r.mine.level + xl + '</td><td>' +
+        r.mine.cp + '</td></tr>';
+    });
+    html += '</table>';
+    out.innerHTML = html;
     return;
   }
 
-  // Dvě až tři varianty: srovnávací tabulka, nejlepší řádek zvýrazněný.
-  var cmp = compareIVs(selected.baseStats, variants.map(function (v) { return v.iv; }), cap);
-  var total = cmp.list.length.toLocaleString('cs-CZ');
-  var bestNames = [];
-  cmp.results.forEach(function (r, i) { if (r.isBest) bestNames.push('Varianta ' + variants[i].n); });
-  var html = '<p><strong>' + esc(selected.speciesName) + '</strong> – srovnání ' + cmp.results.length +
-    ' variant (ze ' + total + ' kombinací): ';
-  html += bestNames.length
-    ? 'nejlepší je <strong>' + bestNames.join(' a ') + '</strong>.</p>'
-    : 'žádná z variant se nevejde pod limit ligy.</p>';
-  html += '<table><tr><th>Varianta</th><th>IV (útok/obrana/výdrž)</th><th>Pořadí</th><th>Level</th><th>CP</th><th>Součin statistik</th><th>Oproti nejlepší</th></tr>';
-  cmp.results.forEach(function (r, i) {
-    var label = 'Varianta ' + variants[i].n + (r.isBest ? '<span class="best-badge">nejlepší</span>' : '');
-    if (!r.mine) {
-      html += '<tr><td>' + label + '</td><td>' + r.iv.join('/') + '</td>' +
-        '<td colspan="5">nevejde se ani na levelu 1 pod limit ' + cap + ' CP</td></tr>';
-      return;
-    }
-    var xlMark = r.mine.level > 40 ? ' <span class="xl">(XL)</span>' : '';
-    var diffTxt = r.isBest ? '–' :
-      Math.round(r.diff).toLocaleString('cs-CZ') + ' (' + fmtNum(r.diffPct) + ' %)';
-    html += '<tr' + (r.isBest ? ' class="best-row"' : '') + '><td>' + label + '</td><td>' + r.iv.join('/') + '</td>' +
-      '<td>#' + r.rank + '</td><td>' + r.mine.level + xlMark + '</td><td>' + r.mine.cp + '</td>' +
-      '<td>' + Math.round(r.mine.product).toLocaleString('cs-CZ') + '</td><td>' + diffTxt + '</td></tr>';
-  });
-  html += '</table>';
-  if (cmp.bestProduct) {
-    html += '<div style="margin-top:10px"><p style="margin:2px 0"><strong>Součin statistik v porovnání</strong> (nejlepší = 100 %):</p>';
+  // Dvě až tři varianty: pro každou ligu vlastní srovnávací tabulka,
+  // nejlepší varianta se zvýrazní v každé lize zvlášť.
+  var out2 = '<p><strong>' + esc(selected.speciesName) + '</strong> – srovnání ' + variants.length +
+    ' variant pro všechny ligy:</p>';
+  LEAGUES.forEach(function (league) {
+    var cmp = compareForPokemon(selected, ivs, league.cap);
+    var label = league.label + (league.cap === Infinity ? ' (bez limitu)' : ' (' + league.cap + ' CP)');
+    var bestNames = [];
+    cmp.results.forEach(function (r, i) { if (r.isBest) bestNames.push('Varianta ' + variants[i].n); });
+    out2 += '<div style="margin-top:12px"><p style="margin:2px 0"><strong>' + label + '</strong> (ze ' +
+      cmp.list.length.toLocaleString('cs-CZ') + ' kombinací): ';
+    out2 += bestNames.length
+      ? 'nejlepší je <strong>' + bestNames.join(' a ') + '</strong>.</p>'
+      : 'žádná z variant se nevejde pod limit ligy.</p>';
+    out2 += '<table><tr><th>Varianta</th><th>IV</th><th>Pořadí</th><th>Level</th><th>CP</th></tr>';
     cmp.results.forEach(function (r, i) {
-      if (!r.mine) return;
-      html += meterRow('Varianta ' + variants[i].n + ' · ' + r.iv.join('/'),
-        r.mine.product / cmp.bestProduct * 100,
-        Math.round(r.mine.product).toLocaleString('cs-CZ'),
-        r.isBest ? 'role-best' : 'power');
+      var vlabel = 'Varianta ' + variants[i].n + (r.isBest ? '<span class="best-badge">nejlepší</span>' : '');
+      if (!r.mine) {
+        out2 += '<tr><td>' + vlabel + '</td><td>' + r.iv.join('/') + '</td>' +
+          '<td colspan="3">nevejde se ani na levelu 1 pod limit ' + league.cap + ' CP</td></tr>';
+        return;
+      }
+      var xlMark = r.mine.level > 40 ? ' <span class="xl">(XL)</span>' : '';
+      out2 += '<tr' + (r.isBest ? ' class="best-row"' : '') + '><td>' + vlabel + '</td><td>' + r.iv.join('/') + '</td>' +
+        '<td>#' + r.rank + '</td><td>' + r.mine.level + xlMark + '</td><td>' + r.mine.cp + '</td></tr>';
     });
-    html += '</div>';
-  }
-  out.innerHTML = html;
+    out2 += '</table></div>';
+  });
+  out.innerHTML = out2;
 }
 
 function init() {
@@ -957,5 +976,5 @@ if (typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { CPM: CPM, cpFor: cpFor, productFor: productFor, bestLevel: bestLevel, rankAllIVs: rankAllIVs, rankOfIV: rankOfIV, compareIVs: compareIVs, COMPARE_LIMIT: COMPARE_LIMIT, buildPveMap: buildPveMap, pveLookup: pveLookup, bestRaidSet: bestRaidSet, computeRaidMax: computeRaidMax, raidBlockHtml: raidBlockHtml, starsInfo: starsInfo, _setData: function (d) { pokemon = d.pokemon || []; moveData = d.moveData || {}; moveNames = d.moveNames || {}; pveFast = d.pveFast || {}; pveCharged = d.pveCharged || {}; raidCache = {}; raidMax = null; } };
+  module.exports = { CPM: CPM, cpFor: cpFor, productFor: productFor, bestLevel: bestLevel, rankAllIVs: rankAllIVs, rankOfIV: rankOfIV, compareIVs: compareIVs, compareForPokemon: compareForPokemon, rankedListFor: rankedListFor, COMPARE_LIMIT: COMPARE_LIMIT, buildPveMap: buildPveMap, pveLookup: pveLookup, bestRaidSet: bestRaidSet, computeRaidMax: computeRaidMax, raidBlockHtml: raidBlockHtml, starsInfo: starsInfo, _setData: function (d) { pokemon = d.pokemon || []; moveData = d.moveData || {}; moveNames = d.moveNames || {}; pveFast = d.pveFast || {}; pveCharged = d.pveCharged || {}; raidCache = {}; raidMax = null; } };
 }
