@@ -377,11 +377,12 @@ function typeChips(types) {
 }
 
 function applySearch() {
-  var q = (document.getElementById('search').value || '').trim().toLowerCase();
+  var q = fold(document.getElementById('search').value).trim();
+  document.getElementById('searchClear').hidden = !q;
   var isNum = q !== '' && /^\d+$/.test(q);
   filtered = pokemon.filter(function (p) {
     if (!q) return true;
-    var nameHit = (p.speciesName || '').toLowerCase().indexOf(q) !== -1;
+    var nameHit = (p._n || (p._n = fold(p.speciesName))).indexOf(q) !== -1;
     var dexHit = isNum && typeof p.dex === 'number' && String(p.dex).indexOf(q) === 0;
     return nameHit || dexHit;
   });
@@ -400,7 +401,7 @@ function renderGrid(reset) {
     var img = (typeof p.dex === 'number')
       ? '<img src="' + SPRITE_BASE + p.dex + '.png" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
       : '';
-    html += '<div class="poke-card" data-id="' + esc(p.speciesId) + '">' + img +
+    html += '<div class="poke-card" data-id="' + esc(p.speciesId) + '">' + favStar(p.speciesId) + img +
       '<div class="dex">#' + (typeof p.dex === 'number' ? p.dex : '?') + '</div>' +
       '<div class="name">' + esc(p.speciesName) + '</div>' +
       '<div class="types">' + (p.types || []).filter(function (t) { return t !== 'none'; })
@@ -413,7 +414,8 @@ function renderGrid(reset) {
   grid.querySelectorAll('.poke-card').forEach(function (card) {
     if (!card.dataset.bound) {
       card.dataset.bound = '1';
-      card.addEventListener('click', function () {
+      card.addEventListener('click', function (e) {
+        if (e.target.closest('.fav-star')) { toggleFav(card.dataset.id); return; }
         var p = pokemon.find(function (x) { return x.speciesId === card.dataset.id; });
         if (p) showDetail(p);
       });
@@ -652,7 +654,7 @@ function raidBlockHtml(p) {
   if (!raid || !raidMax) return '';
   var score = raid.dps / raidMax.dps * 100;
   var si = starsInfo(score);
-  var html = '<div class="league"><h3>Gymy a raidy</h3>';
+  var html = '<details class="league"><summary>Gymy a raidy' + (si ? ' <span class="stars">' + si.stars + '</span>' : '') + '</summary>';
   html += '<p>Hodnocení: ' +
     (si ? '<span class="stars">' + si.stars + '</span> <strong>' + si.label + '</strong> · ' : '') +
     'poškození za sekundu <strong>' + fmtNum(raid.dps) + '</strong></p>';
@@ -663,7 +665,7 @@ function raidBlockHtml(p) {
     '</div>';
   html += '<p style="margin-top:8px"><strong>Nejlepší útoky:</strong></p>' +
     raidFastMoveHtml(p, raid) + raidChargedMoveHtml(p, raid);
-  return html + '</div>';
+  return html + '</details>';
 }
 
 // ---------- Přepínač vývojových fází ----------
@@ -739,7 +741,8 @@ function fillEvolution(p) {
 function showDetail(p) {
   selected = p;
   addToHistory(p);
-  var el = document.getElementById('detail');
+  openDetailUI(p);
+  var el = document.getElementById('detailBody');
   var img = (typeof p.dex === 'number')
     ? '<img class="artwork" src="' + ARTWORK_BASE + p.dex + '.png" alt="' + esc(p.speciesName) + '" onerror="this.style.display=\'none\'">'
     : '';
@@ -750,6 +753,7 @@ function showDetail(p) {
     ' · obrana ' + p.baseStats.def + ' · výdrž ' + p.baseStats.hp + '</p></div></div>';
   html += '<div id="evoBox"><p style="color:var(--muted);font-size:14px;margin:10px 0 0">Vývojová řada: načítám…</p></div>';
 
+  html += weakHtml(p);
   var shownLeagues = 0;
   LEAGUES.forEach(function (league) {
     var entry = rankings[league.key] ? rankings[league.key][p.speciesId] : null;
@@ -773,11 +777,12 @@ function showDetail(p) {
     var note = league.cap === Infinity
       ? '<p><em>Bez CP limitu je nejlepší kombinace 15/15/15 na levelu 51.</em></p>'
       : '';
-    html += '<div class="league"><h3>' + league.label +
-      (league.cap === Infinity ? '' : ' (' + league.cap + ' CP)') + '</h3>' +
+    html += '<details class="league"' + (shownLeagues === 1 ? ' open' : '') + '><summary>' + league.label +
+      (league.cap === Infinity ? '' : ' (' + league.cap + ' CP)') +
+      (si ? ' <span class="stars">' + si.stars + '</span>' : '') + ' <span class="sum-rank">#' + entry.rank + '</span></summary>' +
       ratingHtml + note +
       '<table><tr><th>Ideální IV</th><th>Level</th><th>CP</th></tr>' +
-      rows + '</table>' + movesHtml + '</div>';
+      rows + '</table>' + movesHtml + '</details>';
   });
   var raidHtml = raidBlockHtml(p);
   html += raidHtml;
@@ -785,14 +790,16 @@ function showDetail(p) {
     html += '<p style="color:var(--muted);font-size:14px;margin-top:12px">Tento Pokémon není hodnocený v žádné lize.</p>';
   }
   el.innerHTML = html;
-  el.classList.add('visible');
   fillEvolution(p);
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.getElementById('calcResult').textContent = '';
+  window.scrollTo(0, 0);
 }
 
 function initSearch() {
-  document.getElementById('search').addEventListener('input', applySearch);
+  document.getElementById('search').addEventListener('input', function () { closeDetail(true); applySearch(); });
+  document.getElementById('search').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && filtered.length) { e.preventDefault(); showDetail(filtered[0]); this.blur(); }
+  });
   document.getElementById('loadMore').addEventListener('click', function () { renderGrid(false); });
   document.getElementById('calcBtn').addEventListener('click', runCalculator);
   initCompareSets();
@@ -925,7 +932,188 @@ function runCalculator() {
   out.innerHTML = out2;
 }
 
+// ---------- Ovládání: záložky, karta Pokémona, oblíbení, srovnání, vzhled ----------
+function $(id) { return document.getElementById(id); }
+function fold(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+function byId(id) { return pokemon.find(function (x) { return x.speciesId === id; }); }
+function fm(m) { return String(Math.round(m * 100) / 100).replace('.', ','); }
+var THEME_KEY = 'pokemon-go-db-theme', FAV_KEY = 'pokemon-go-db-favs-v1';
+var curView = 'search', detailFrom = 'search', scrollY0 = 0, skipHash = false, pushed = false, favs = [];
+try { favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]') || []; } catch (e) { favs = []; }
+
+function setView(v) {
+  curView = v;
+  ['search', 'fav', 'cmp'].forEach(function (k) { $('view' + k[0].toUpperCase() + k.slice(1)).hidden = k !== v; });
+  document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.view === v); });
+  if (v === 'fav') renderFavs();
+  window.scrollTo(0, 0);
+}
+function openDetailUI(p) {
+  if (!document.body.classList.contains('has-detail')) {
+    scrollY0 = window.scrollY;
+    detailFrom = curView;
+    if (curView !== 'search') setView('search');
+  }
+  document.body.classList.add('has-detail');
+  $('favBtn').dataset.id = p.speciesId;
+  refreshFavs();
+  if (location.hash !== '#' + p.speciesId) { skipHash = true; pushed = true; location.hash = p.speciesId; }
+}
+function closeDetail(stay) {
+  if (!document.body.classList.contains('has-detail')) return;
+  document.body.classList.remove('has-detail');
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  if (!stay && detailFrom !== 'search') setView(detailFrom); else window.scrollTo(0, stay ? 0 : scrollY0);
+  detailFrom = 'search';
+}
+function openFromHash() {
+  var id = decodeURIComponent(location.hash.slice(1)), p = id && pokemon.length ? byId(id) : null;
+  if (p) showDetail(p); else closeDetail();
+}
+
+// Oblíbení
+function isFav(id) { return favs.indexOf(id) !== -1; }
+function favStar(id) {
+  return '<span class="fav-star' + (isFav(id) ? ' on' : '') + '" data-id="' + esc(id) + '" role="button" aria-label="Oblíbený">' + (isFav(id) ? '★' : '☆') + '</span>';
+}
+function toggleFav(id) {
+  var i = favs.indexOf(id);
+  if (i < 0) favs.push(id); else favs.splice(i, 1);
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+  refreshFavs();
+  if (curView === 'fav') renderFavs();
+}
+function refreshFavs() {
+  document.querySelectorAll('.fav-star').forEach(function (s) {
+    var on = isFav(s.dataset.id); s.classList.toggle('on', on); s.textContent = on ? '★' : '☆';
+  });
+  var fb = $('favBtn');
+  if (fb && fb.dataset.id) {
+    var on = isFav(fb.dataset.id); fb.classList.toggle('on', on);
+    fb.textContent = on ? '★ V oblíbených' : '☆ Přidat do oblíbených';
+  }
+}
+function cardHtml(p) {
+  var types = (p.types || []).filter(function (t) { return t !== 'none'; }).map(function (t) { return TYPE_NAMES[t] || t; }).join(' / ');
+  return '<div class="poke-card" data-id="' + esc(p.speciesId) + '">' + favStar(p.speciesId) +
+    (typeof p.dex === 'number' ? '<img src="' + SPRITE_BASE + p.dex + '.png" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
+    '<div class="dex">#' + (typeof p.dex === 'number' ? p.dex : '?') + '</div><div class="name">' + esc(p.speciesName) +
+    '</div><div class="types">' + types + '</div></div>';
+}
+function renderFavs() {
+  var list = favs.map(byId).filter(Boolean);
+  $('favGrid').innerHTML = list.length ? list.map(cardHtml).join('') :
+    '<p class="muted">Zatím tu nic není. Na kartě Pokémona klepni na ☆ a objeví se tady.</p>';
+}
+
+// Slabiny a odolnosti podle typů (násobky z Pokémon GO: 1,6 / 0,625 / 0,39)
+var TCH = {
+  normal: ['', 'rock steel', 'ghost'], fire: ['grass ice bug steel', 'fire water rock dragon', ''],
+  water: ['fire ground rock', 'water grass dragon', ''], electric: ['water flying', 'electric grass dragon', 'ground'],
+  grass: ['water ground rock', 'fire grass poison flying bug dragon steel', ''], ice: ['grass ground flying dragon', 'fire water ice steel', ''],
+  fighting: ['normal ice rock dark steel', 'poison flying psychic bug fairy', 'ghost'], poison: ['grass fairy', 'poison ground rock ghost', 'steel'],
+  ground: ['fire electric poison rock steel', 'grass bug', 'flying'], flying: ['grass fighting bug', 'electric rock steel', ''],
+  psychic: ['fighting poison', 'psychic steel', 'dark'], bug: ['grass psychic dark', 'fire fighting poison flying ghost steel fairy', ''],
+  rock: ['fire ice flying bug', 'fighting ground steel', ''], ghost: ['psychic ghost', 'dark', 'normal'],
+  dragon: ['dragon', 'steel', 'fairy'], dark: ['psychic ghost', 'fighting dark fairy', ''],
+  steel: ['ice rock fairy', 'fire water electric steel', ''], fairy: ['fighting dragon dark', 'fire poison steel', '']
+};
+function typeMult(att, types) {
+  var m = 1, c = TCH[att];
+  (types || []).forEach(function (t) {
+    if (!t || t === 'none') return;
+    [1.6, 0.625, 0.390625].forEach(function (x, i) { if ((' ' + c[i] + ' ').indexOf(' ' + t + ' ') > -1) m *= x; });
+  });
+  return m;
+}
+function weakHtml(p) {
+  var weak = [], res = [];
+  Object.keys(TCH).forEach(function (a) {
+    var m = typeMult(a, p.types);
+    if (m > 1.01) weak.push([a, m]); else if (m < 0.99) res.push([a, m]);
+  });
+  function chips(list, cls) {
+    list.sort(function (x, y) { return cls === 'w' ? y[1] - x[1] : x[1] - y[1]; });
+    return list.map(function (x) { return '<span class="mchip ' + cls + '">' + esc(TYPE_NAMES[x[0]] || x[0]) + ' ×' + fm(x[1]) + '</span>'; }).join('') || '<span class="muted">žádné</span>';
+  }
+  return '<details class="league"><summary>Slabiny a odolnosti</summary><p><strong>Slabý proti</strong></p><div>' +
+    chips(weak, 'w') + '</div><p><strong>Odolný proti</strong></p><div>' + chips(res, 'r') + '</div></details>';
+}
+
+// Srovnání dvou Pokémonů
+function fillNames() {
+  $('names').innerHTML = pokemon.map(function (p) { return '<option value="' + esc(p.speciesName) + '">'; }).join('');
+}
+function renderCmp() {
+  function pick(v) { var q = fold(v).trim(); return q && pokemon.find(function (p) { return fold(p.speciesName) === q; }); }
+  var a = pick($('cmpA').value), b = pick($('cmpB').value), out = $('cmpOut');
+  if (!a || !b) { out.innerHTML = '<p class="muted">Vyber dva Pokémony ze seznamu. Lepší hodnota v řádku se zvýrazní.</p>'; return; }
+  function row(label, va, vb, f) {
+    return '<tr><th>' + label + '</th><td class="' + (va > vb ? 'win' : '') + '">' + f(va) + '</td><td class="' + (vb > va ? 'win' : '') + '">' + f(vb) + '</td></tr>';
+  }
+  function head(p) {
+    return (typeof p.dex === 'number' ? '<img src="' + SPRITE_BASE + p.dex + '.png" alt=""><br>' : '') + esc(p.speciesName);
+  }
+  var rows = '<tr><th></th><td>' + head(a) + '</td><td>' + head(b) + '</td></tr>';
+  [['Útok', 'atk'], ['Obrana', 'def'], ['Výdrž', 'hp']].forEach(function (r) { rows += row(r[0], a.baseStats[r[1]], b.baseStats[r[1]], String); });
+  function stars(s) { var si = s < 0 ? null : starsInfo(s); return si ? '<span class="stars">' + si.stars + '</span>' : '–'; }
+  LEAGUES.forEach(function (l) {
+    var ea = (rankings[l.key] || {})[a.speciesId], eb = (rankings[l.key] || {})[b.speciesId];
+    rows += row(l.label, ea && ea.score != null ? ea.score : -1, eb && eb.score != null ? eb.score : -1, stars);
+  });
+  var ra = bestRaidSet(a), rb = bestRaidSet(b);
+  if (raidMax && (ra || rb)) rows += row('Gymy a raidy', ra ? ra.dps / raidMax.dps * 100 : -1, rb ? rb.dps / raidMax.dps * 100 : -1, stars);
+  out.innerHTML = '<div style="overflow-x:auto"><table class="cmp-table">' + rows + '</table></div>';
+}
+
+function initUi() {
+  var th = null; try { th = localStorage.getItem(THEME_KEY); } catch (e) {}
+  var ICON = { '': '🌓', dark: '🌙', light: '☀️' };
+  $('themeBtn').textContent = ICON[th || ''] || '🌓';
+  $('themeBtn').addEventListener('click', function () {
+    var cur = document.documentElement.dataset.theme || '', nxt = cur === '' ? 'dark' : cur === 'dark' ? 'light' : '';
+    if (nxt) document.documentElement.dataset.theme = nxt; else delete document.documentElement.dataset.theme;
+    try { localStorage.setItem(THEME_KEY, nxt); } catch (e) {}
+    this.textContent = ICON[nxt];
+  });
+  $('grid').innerHTML = new Array(13).join('<div class="poke-card skel"></div>');
+  $('tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setView(b.dataset.view); });
+  $('backBtn').addEventListener('click', function () { if (pushed) history.back(); else closeDetail(); });
+  $('favBtn').addEventListener('click', function () { if (this.dataset.id) toggleFav(this.dataset.id); });
+  $('favGrid').addEventListener('click', function (e) {
+    var s = e.target.closest('.fav-star');
+    if (s) { toggleFav(s.dataset.id); return; }
+    var c = e.target.closest('.poke-card'), p = c && byId(c.dataset.id);
+    if (p) showDetail(p);
+  });
+  $('searchClear').addEventListener('click', function () { $('search').value = ''; $('search').focus(); closeDetail(true); applySearch(); });
+  window.addEventListener('hashchange', function () { if (skipHash) { skipHash = false; return; } openFromHash(); });
+  // IV: tlačítka +/−, rychlé zadání „15/14/13“ a výpočet hned při změně
+  var panel = $('calcPanel'), timer;
+  panel.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-step]');
+    if (!b) return;
+    var inp = $(b.dataset.for);
+    inp.value = Math.max(0, Math.min(15, (parseInt(inp.value, 10) || 0) + Number(b.dataset.step)));
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  panel.addEventListener('input', function (e) {
+    var q = e.target;
+    if (q.classList.contains('iv-quick')) {
+      var m = q.value.match(/(\d{1,2})\D+(\d{1,2})\D+(\d{1,2})/), s = q.dataset.set === '1' ? '' : q.dataset.set;
+      if (m) ['ivAtk', 'ivDef', 'ivSta'].forEach(function (k, i) { $(k + s).value = Math.min(15, Number(m[i + 1])); });
+    }
+    clearTimeout(timer);
+    timer = setTimeout(function () { if (selected) runCalculator(); }, 250);
+  });
+  $('cmpA').addEventListener('input', renderCmp);
+  $('cmpB').addEventListener('input', renderCmp);
+  renderCmp();
+  if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(function () {});
+}
+
 function init() {
+  initUi();
   var status = document.getElementById('status');
   // Žebříčky (včetně nejlepších útoků) jsou nepovinné: když se některý
   // nenačte, aplikace běží dál a útoky se vezmou ze skupin PvPoke.
@@ -969,6 +1157,8 @@ function init() {
     initSearch();
     renderHistory();
     applySearch();
+    fillNames();
+    if (location.hash) openFromHash();
   }).catch(function (err) {
     status.textContent = 'Nepodařilo se načíst data. Zkontroluj připojení a obnov stránku. (' + err.message + ')';
     status.classList.add('error');

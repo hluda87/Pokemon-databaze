@@ -4,11 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pokémon GO databáze</title>
+<meta name="theme-color" content="#1f2430">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script>try{var t=localStorage.getItem('pokemon-go-db-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 <style>
-  :root { --bg:#f4f6fb; --card:#fff; --text:#1f2430; --muted:#667085; --accent:#e3350d; --accent2:#2a75bb; --border:#e2e6ef; }
+:root{--bg:#f4f6fb;--card:#fff;--text:#1f2430;--muted:#667085;--accent:#e3350d;--accent2:#2a75bb;--border:#e2e6ef;--soft:#f8f9fc;--soft2:#eef4fb;--track:#edf0f5;--bestbg:#eaf7ee;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151c;--card:#1b2029;--text:#e8ebf2;--muted:#9aa4b8;--border:#2c3342;--soft:#222937;--soft2:#26324a;--track:#2c3342;--bestbg:#17321f;color-scheme:dark;}}
+:root[data-theme="dark"]{--bg:#12151c;--card:#1b2029;--text:#e8ebf2;--muted:#9aa4b8;--border:#2c3342;--soft:#222937;--soft2:#26324a;--track:#2c3342;--bestbg:#17321f;color-scheme:dark;}
+
+  
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); }
   header { background:#1f2430; color:#fff; padding:20px 16px; }
@@ -27,8 +34,8 @@
   .history-clear { background:none; border:0; padding:2px 4px; font-size:12px; color:var(--muted); cursor:pointer; text-decoration:underline; }
   .history-clear:hover { color:var(--accent); }
   .history-strip { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 6px; -webkit-overflow-scrolling:touch; }
-  .hist-chip { flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:5px 14px 5px 7px; background:#f8f9fc; border:1px solid var(--border); border-radius:999px; cursor:pointer; font-size:13px; color:var(--text); transition:border-color .15s, background .15s, box-shadow .15s, transform .15s; }
-  .hist-chip:hover { border-color:var(--accent2); background:#eef4fb; box-shadow:0 2px 8px rgba(0,0,0,.08); transform:translateY(-1px); }
+  .hist-chip { flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:5px 14px 5px 7px; background:var(--soft); border:1px solid var(--border); border-radius:999px; cursor:pointer; font-size:13px; color:var(--text); transition:border-color .15s, background .15s, box-shadow .15s, transform .15s; }
+  .hist-chip:hover { border-color:var(--accent2); background:var(--soft2); box-shadow:0 2px 8px rgba(0,0,0,.08); transform:translateY(-1px); }
   .hist-chip img { width:32px; height:32px; object-fit:contain; }
   .hist-chip .h-name { font-weight:600; }
   .hist-chip .h-dex { color:var(--muted); font-size:12px; }
@@ -39,11 +46,11 @@
   .poke-card .dex { color:var(--muted); font-size:12px; }
   .poke-card .name { font-weight:600; font-size:14px; }
   .poke-card .types { font-size:12px; color:var(--muted); }
-  #loadMore { display:block; margin:16px auto 0; padding:10px 20px; font-size:15px; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; }
+  #loadMore { display:block; margin:16px auto 0; padding:10px 20px; font-size:15px; border:1px solid var(--border); border-radius:8px; background:var(--card); cursor:pointer; }
   #detail { display:none; }
   #detail.visible { display:block; }
   .detail-head { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
-  .detail-head img.artwork { width:200px; height:200px; object-fit:contain; background:#f8f9fc; border-radius:12px; }
+  .detail-head img.artwork { width:200px; height:200px; object-fit:contain; background:var(--soft); border-radius:12px; }
   .chip { display:inline-block; padding:3px 10px; border-radius:999px; font-size:13px; margin:2px 4px 2px 0; color:#fff; background:var(--accent2); }
   table { border-collapse:collapse; width:100%; margin-top:8px; }
   th, td { border-bottom:1px solid var(--border); padding:6px 8px; text-align:left; font-size:14px; }
@@ -54,7 +61,7 @@
   .stars { color:#f5a623; font-size:18px; letter-spacing:2px; }
   .meter { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin:3px 0; }
   .meter .lbl { width:118px; flex:none; }
-  .meter .track { flex:1; height:8px; background:#edf0f5; border-radius:4px; overflow:hidden; }
+  .meter .track { flex:1; height:8px; background:var(--track); border-radius:4px; overflow:hidden; }
   .meter .fill { height:100%; border-radius:4px; }
   .meter .val { width:44px; flex:none; text-align:right; font-variant-numeric:tabular-nums; }
   .fill.energy { background:#f59e0b; }
@@ -67,10 +74,10 @@
   .fill.role-best { background:#16a34a; }
   .move { margin:8px 0; }
   .evo-strip { display:flex; gap:8px; overflow-x:auto; padding:8px 2px; -webkit-overflow-scrolling:touch; }
-  .evo-btn { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:2px; background:#fff; border:2px solid var(--border); border-radius:10px; padding:6px 8px; cursor:pointer; font-size:12px; color:var(--text); }
+  .evo-btn { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:2px; background:var(--card); border:2px solid var(--border); border-radius:10px; padding:6px 8px; cursor:pointer; font-size:12px; color:var(--text); }
   .evo-btn img { width:56px; height:56px; }
-  .evo-btn.active { border-color:var(--accent2); background:#eef4fb; font-weight:600; }
-  .badge { display:inline-block; background:#eef2ff; border:1px solid var(--border); border-radius:999px; padding:0 8px; font-size:12px; margin-left:6px; }
+  .evo-btn.active { border-color:var(--accent2); background:var(--soft2); font-weight:600; }
+  .badge { display:inline-block; background:var(--soft2); border:1px solid var(--border); border-radius:999px; padding:0 8px; font-size:12px; margin-left:6px; }
   .xl { color:#b54708; font-weight:600; }
   .calc { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
   .calc label { font-size:13px; color:var(--muted); display:block; margin-bottom:4px; }
@@ -83,134 +90,79 @@
   .calc-set .calc input { width:76px; }
   .calc-remove { background:none; border:0; padding:2px 4px; font-size:13px; color:var(--muted); cursor:pointer; text-decoration:underline; }
   .calc-remove:hover { color:var(--accent); }
-  #addCompareBtn { margin-top:12px; padding:10px 18px; font-size:15px; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--text); cursor:pointer; }
-  #addCompareBtn:hover { border-color:var(--accent2); background:#eef4fb; }
+  #addCompareBtn { margin-top:12px; padding:10px 18px; font-size:15px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); cursor:pointer; }
+  #addCompareBtn:hover { border-color:var(--accent2); background:var(--soft2); }
   .calc-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin-top:12px; }
   #calcBtn { padding:10px 18px; font-size:15px; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; }
   #calcResult { margin-top:10px; font-size:14px; }
-  #calcResult tr.best-row td { background:#eaf7ee; }
+  #calcResult tr.best-row td { background:var(--bestbg); }
   .best-badge { display:inline-block; background:#16a34a; color:#fff; border-radius:999px; padding:0 8px; font-size:12px; margin-left:6px; }
   footer { color:var(--muted); font-size:13px; text-align:center; padding:8px 16px 24px; }
   @media (max-width:600px) {
     header h1 { font-size:22px; }
     .detail-head img.artwork { width:150px; height:150px; }
   }
+:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+[hidden]{display:none!important}
+input{background:var(--card);color:var(--text)}
+header{padding:12px 16px 0}.hrow,.tabs{max-width:1100px;margin:0 auto}.hrow{display:flex;justify-content:space-between;align-items:center}
+#themeBtn{background:none;border:1px solid #475066;color:#fff;border-radius:8px;padding:6px 10px;font-size:16px;cursor:pointer}
+.tabs{display:flex;gap:4px;margin-top:10px}.tabs button{flex:1;padding:11px 6px;border:0;background:none;color:#c7cede;font-size:15px;border-bottom:3px solid transparent;cursor:pointer}.tabs button.on{color:#fff;border-bottom-color:var(--accent)}
+.searchbar{position:sticky;top:0;z-index:20;background:var(--bg);padding:10px 0;display:flex;gap:8px}
+.searchbar input{flex:1;padding:12px 14px;font-size:16px;border:1px solid var(--border);border-radius:10px}
+#searchClear{width:46px;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:10px;font-size:16px;cursor:pointer}
+#status{margin:0 0 6px}
+#detail{display:none}body.has-detail #detail{display:block}body.has-detail #listPanel{display:none}
+.dtop{display:flex;justify-content:space-between;gap:8px;margin-bottom:12px}
+.dtop button{padding:10px 14px;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer}
+#favBtn.on{border-color:#f5a623;color:#b54708}
+.poke-card{position:relative}.fav-star{position:absolute;top:0;right:4px;font-size:22px;color:var(--muted);cursor:pointer;padding:4px}.fav-star.on{color:#f5a623}
+.skel{height:150px;background:linear-gradient(90deg,var(--track),var(--soft),var(--track));background-size:200% 100%;animation:sh 1.2s infinite}
+@keyframes sh{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+details.league{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:12px}
+details.league>summary{cursor:pointer;font-weight:700;font-size:17px;list-style:none;display:flex;gap:8px;align-items:center;min-height:32px}
+details.league>summary::-webkit-details-marker{display:none}details.league>summary::after{content:'▾';margin-left:auto;color:var(--muted)}details.league[open]>summary::after{content:'▴'}
+.sum-rank{color:var(--muted);font-size:13px;font-weight:400}
+.mchip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:13px;margin:2px 4px 2px 0}.mchip.w{background:#fde8e6;color:#b42318}.mchip.r{background:#e3f5e8;color:#166534}
+.muted{color:var(--muted);font-size:14px}
+.step{display:flex}.step button{width:38px;padding:0;border:1px solid var(--border);background:var(--soft);color:var(--text);font-size:18px;cursor:pointer}
+.step button:first-child{border-radius:8px 0 0 8px}.step button:last-child{border-radius:0 8px 8px 0}.step input{width:52px!important;border-radius:0!important;text-align:center}
+.iv-quick{width:100%;padding:9px;margin-bottom:8px;border:1px solid var(--border);border-radius:8px;font-size:15px}
+.calc input,.calc select{background:var(--card);color:var(--text)}
+.calcpanel{margin-top:18px;border-top:1px solid var(--border);padding-top:12px}.calcpanel>summary{cursor:pointer;font-size:20px;font-weight:700}
+.cmp-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cmp-pick input{padding:11px;font-size:16px;border:1px solid var(--border);border-radius:8px;min-width:0}
+.cmp-table td,.cmp-table th{text-align:center}.cmp-table td.win{background:var(--bestbg);font-weight:700}.cmp-table img{width:72px;height:72px}
+
 </style>
 </head>
 <body>
 <header>
-  <h1>Pokémon GO databáze</h1>
-  <p>Vyhledej Pokémona a zjisti ideální IV do jednotlivých lig i nejlepší útoky.</p>
+ <div class="hrow"><h1>Pokémon GO databáze</h1><button id="themeBtn" type="button" aria-label="Přepnout vzhled">🌓</button></div>
+ <nav class="tabs" id="tabs"><button type="button" data-view="search" class="on">Hledat</button><button type="button" data-view="fav">⭐ Oblíbení</button><button type="button" data-view="cmp">Srovnat</button></nav>
 </header>
 <main>
-  <section class="panel">
-    <p id="status">Načítám data…</p>
-    <div class="filters">
-      <input type="search" id="search" placeholder="Hledat podle jména nebo čísla v Pokédexu…" autocomplete="off">
-    </div>
-    <div id="historyBox"></div>
-    <p id="count"></p>
-    <div id="grid" class="grid"></div>
-    <button id="loadMore" style="display:none">Zobrazit další</button>
-  </section>
-
-  <section id="detail" class="panel" aria-live="polite"></section>
-
-  <section class="panel">
-    <h2>IV kalkulačka</h2>
-    <p style="color:var(--muted);font-size:14px">Vyber nejdřív Pokémona v seznamu, pak zadej jeho IV. Kalkulačka ukáže výsledky pro všechny ligy najednou – jak dobré tvé IV je v porovnání se všemi 4096 kombinacemi. Tlačítkem „Přidat srovnání“ můžeš porovnat až deset různých kombinací IV najednou; nejlepší varianta se v každé lize zvýrazní.</p>
-    <div class="calc-sets">
-      <div class="calc-set" id="calcSet1">
-        <div class="calc-set-head"><h3>Varianta 1</h3></div>
-        <div class="calc">
-          <div><label for="ivAtk">Útok (IV)</label><input type="number" id="ivAtk" min="0" max="15" value="15"></div>
-          <div><label for="ivDef">Obrana (IV)</label><input type="number" id="ivDef" min="0" max="15" value="15"></div>
-          <div><label for="ivSta">Výdrž (IV)</label><input type="number" id="ivSta" min="0" max="15" value="15"></div>
-        </div>
-      </div>
-      <div class="calc-set" id="calcSet2" style="display:none">
-        <div class="calc-set-head"><h3>Varianta 2</h3><button type="button" class="calc-remove" data-remove-set="2">Odebrat</button></div>
-        <div class="calc">
-          <div><label for="ivAtk2">Útok (IV)</label><input type="number" id="ivAtk2" min="0" max="15" value="0"></div>
-          <div><label for="ivDef2">Obrana (IV)</label><input type="number" id="ivDef2" min="0" max="15" value="15"></div>
-          <div><label for="ivSta2">Výdrž (IV)</label><input type="number" id="ivSta2" min="0" max="15" value="15"></div>
-        </div>
-      </div>
-      <div class="calc-set" id="calcSet3" style="display:none">
-        <div class="calc-set-head"><h3>Varianta 3</h3><button type="button" class="calc-remove" data-remove-set="3">Odebrat</button></div>
-        <div class="calc">
-          <div><label for="ivAtk3">Útok (IV)</label><input type="number" id="ivAtk3" min="0" max="15" value="15"></div>
-          <div><label for="ivDef3">Obrana (IV)</label><input type="number" id="ivDef3" min="0" max="15" value="14"></div>
-          <div><label for="ivSta3">Výdrž (IV)</label><input type="number" id="ivSta3" min="0" max="15" value="14"></div>
-        </div>
-      </div>
-      <div class="calc-set" id="calcSet4" style="display:none">
-        <div class="calc-set-head"><h3>Varianta 4</h3><button type="button" class="calc-remove" data-remove-set="4">Odebrat</button></div>
-        <div class="calc">
-          <div><label for="ivAtk4">Útok (IV)</label><input type="number" id="ivAtk4" min="0" max="15" value="15"></div>
-          <div><label for="ivDef4">Obrana (IV)</label><input type="number" id="ivDef4" min="0" max="15" value="15"></div>
-          <div><label for="ivSta4">Výdrž (IV)</label><input type="number" id="ivSta4" min="0" max="15" value="15"></div>
-        </div>
-      </div>
-      <div class="calc-set" id="calcSet5" style="display:none">
-        <div class="calc-set-head"><h3>Varianta 5</h3><button type="button" class="calc-remove" data-remove-set="5">Odebrat</button></div>
-        <div class="calc">
-          <div><label for="ivAtk5">Útok (IV)</label><input type="number" id="ivAtk5" min="0" max="15" value="15"></div>
-          <div><label for="ivDef5">Obrana (IV)</label><input type="number" id="ivDef5" min="0" max="15" value="15"></div>
-          <div><label for="ivSta5">Výdrž (IV)</label><input type="number" id="ivSta5" min="0" max="15" value="15"></div>
-        </div>
-      </div>
-      <div class="calc-set" id="calcSet6" style="display:none">
-        <div class="calc-set-head"><h3>Varianta 6</h3><button type="button" class="calc-remove" data-remove-set="6">Odebrat</button></div>
-        <div class="calc">
-          <div><label for="ivAtk6">Útok (IV)</label><input type="number" id="ivAtk6" min="0" max="15" value="15"></div>
-          <div><label for="ivDef6">Obrana (IV)</label><input type="number" id="ivDef6" min="0" max="15" value="15"></div>
-          <div><label for="ivSta6">Výdrž (IV)</label><input type="number" id="ivSta6" min="0" max="15" value="15"></div>
-        </div>
-      </div>
-      <div class="calc-set" id="calcSet7" style="display:none">
-        <div class="calc-set-head"><h3>Varianta 7</h3><button type="button" class="calc-remove" data-remove-set="7">Odebrat</button></div>
-        <div class="calc">
-          <div><label for="ivAtk7">Útok (IV)</label><input type="number" id="ivAtk7" min="0" max="15" value="15"></div>
-          <div><label for="ivDef7">Obrana (IV)</label><input type="number" id="ivDef7" min="0" max="15" value="15"></div>
-          <div><label for="ivSta7">Výdrž (IV)</label><input type="number" id="ivSta7" min="0" max="15" value="15"></div>
-        </div>
-      </div>
-      <div class="calc-set" id="calcSet8" style="display:none">
-        <div class="calc-set-head"><h3>Varianta 8</h3><button type="button" class="calc-remove" data-remove-set="8">Odebrat</button></div>
-        <div class="calc">
-          <div><label for="ivAtk8">Útok (IV)</label><input type="number" id="ivAtk8" min="0" max="15" value="15"></div>
-          <div><label for="ivDef8">Obrana (IV)</label><input type="number" id="ivDef8" min="0" max="15" value="15"></div>
-          <div><label for="ivSta8">Výdrž (IV)</label><input type="number" id="ivSta8" min="0" max="15" value="15"></div>
-        </div>
-      </div>
-      <div class="calc-set" id="calcSet9" style="display:none">
-        <div class="calc-set-head"><h3>Varianta 9</h3><button type="button" class="calc-remove" data-remove-set="9">Odebrat</button></div>
-        <div class="calc">
-          <div><label for="ivAtk9">Útok (IV)</label><input type="number" id="ivAtk9" min="0" max="15" value="15"></div>
-          <div><label for="ivDef9">Obrana (IV)</label><input type="number" id="ivDef9" min="0" max="15" value="15"></div>
-          <div><label for="ivSta9">Výdrž (IV)</label><input type="number" id="ivSta9" min="0" max="15" value="15"></div>
-        </div>
-      </div>
-      <div class="calc-set" id="calcSet10" style="display:none">
-        <div class="calc-set-head"><h3>Varianta 10</h3><button type="button" class="calc-remove" data-remove-set="10">Odebrat</button></div>
-        <div class="calc">
-          <div><label for="ivAtk10">Útok (IV)</label><input type="number" id="ivAtk10" min="0" max="15" value="15"></div>
-          <div><label for="ivDef10">Obrana (IV)</label><input type="number" id="ivDef10" min="0" max="15" value="15"></div>
-          <div><label for="ivSta10">Výdrž (IV)</label><input type="number" id="ivSta10" min="0" max="15" value="15"></div>
-        </div>
-      </div>
-    </div>
+ <div id="viewSearch">
+  <div class="searchbar"><input type="search" id="search" placeholder="Jméno nebo číslo v Pokédexu…" autocomplete="off" enterkeyhint="search"><button type="button" id="searchClear" aria-label="Smazat hledání" hidden>✕</button></div>
+  <p id="status">Načítám data…</p>
+  <div id="historyBox"></div>
+  <section class="panel" id="listPanel"><p id="count"></p><div id="grid" class="grid"></div><button id="loadMore" style="display:none">Zobrazit další</button></section>
+  <section id="detail" class="panel" aria-live="polite">
+   <div class="dtop"><button type="button" id="backBtn">← Zpět na seznam</button><button type="button" id="favBtn">☆ Přidat do oblíbených</button></div>
+   <div id="detailBody"></div>
+   <details id="calcPanel" class="calcpanel" open><summary>IV kalkulačka</summary>
+    <p class="muted">Zadej IV a hned uvidíš výsledky pro všechny ligy. Tlačítkem „Přidat srovnání“ porovnáš až deset kombinací.</p>
+    <div class="calc-sets"><div class="calc-set" id="calcSet1"><div class="calc-set-head"><h3>Varianta 1</h3></div><input class="iv-quick" data-set="1" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV varianty 1"><div class="calc"><div><label for="ivAtk">Útok</label><div class="step"><button type="button" data-step="-1" data-for="ivAtk" aria-label="Útok −">−</button><input type="number" inputmode="numeric" id="ivAtk" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivAtk" aria-label="Útok +">+</button></div></div><div><label for="ivDef">Obrana</label><div class="step"><button type="button" data-step="-1" data-for="ivDef" aria-label="Obrana −">−</button><input type="number" inputmode="numeric" id="ivDef" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivDef" aria-label="Obrana +">+</button></div></div><div><label for="ivSta">Výdrž</label><div class="step"><button type="button" data-step="-1" data-for="ivSta" aria-label="Výdrž −">−</button><input type="number" inputmode="numeric" id="ivSta" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivSta" aria-label="Výdrž +">+</button></div></div></div></div><div class="calc-set" id="calcSet2" style="display:none"><div class="calc-set-head"><h3>Varianta 2</h3><button type="button" class="calc-remove" data-remove-set="2">Odebrat</button></div><input class="iv-quick" data-set="2" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV varianty 2"><div class="calc"><div><label for="ivAtk2">Útok</label><div class="step"><button type="button" data-step="-1" data-for="ivAtk2" aria-label="Útok −">−</button><input type="number" inputmode="numeric" id="ivAtk2" min="0" max="15" value="0"><button type="button" data-step="1" data-for="ivAtk2" aria-label="Útok +">+</button></div></div><div><label for="ivDef2">Obrana</label><div class="step"><button type="button" data-step="-1" data-for="ivDef2" aria-label="Obrana −">−</button><input type="number" inputmode="numeric" id="ivDef2" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivDef2" aria-label="Obrana +">+</button></div></div><div><label for="ivSta2">Výdrž</label><div class="step"><button type="button" data-step="-1" data-for="ivSta2" aria-label="Výdrž −">−</button><input type="number" inputmode="numeric" id="ivSta2" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivSta2" aria-label="Výdrž +">+</button></div></div></div></div><div class="calc-set" id="calcSet3" style="display:none"><div class="calc-set-head"><h3>Varianta 3</h3><button type="button" class="calc-remove" data-remove-set="3">Odebrat</button></div><input class="iv-quick" data-set="3" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV varianty 3"><div class="calc"><div><label for="ivAtk3">Útok</label><div class="step"><button type="button" data-step="-1" data-for="ivAtk3" aria-label="Útok −">−</button><input type="number" inputmode="numeric" id="ivAtk3" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivAtk3" aria-label="Útok +">+</button></div></div><div><label for="ivDef3">Obrana</label><div class="step"><button type="button" data-step="-1" data-for="ivDef3" aria-label="Obrana −">−</button><input type="number" inputmode="numeric" id="ivDef3" min="0" max="15" value="14"><button type="button" data-step="1" data-for="ivDef3" aria-label="Obrana +">+</button></div></div><div><label for="ivSta3">Výdrž</label><div class="step"><button type="button" data-step="-1" data-for="ivSta3" aria-label="Výdrž −">−</button><input type="number" inputmode="numeric" id="ivSta3" min="0" max="15" value="14"><button type="button" data-step="1" data-for="ivSta3" aria-label="Výdrž +">+</button></div></div></div></div><div class="calc-set" id="calcSet4" style="display:none"><div class="calc-set-head"><h3>Varianta 4</h3><button type="button" class="calc-remove" data-remove-set="4">Odebrat</button></div><input class="iv-quick" data-set="4" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV varianty 4"><div class="calc"><div><label for="ivAtk4">Útok</label><div class="step"><button type="button" data-step="-1" data-for="ivAtk4" aria-label="Útok −">−</button><input type="number" inputmode="numeric" id="ivAtk4" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivAtk4" aria-label="Útok +">+</button></div></div><div><label for="ivDef4">Obrana</label><div class="step"><button type="button" data-step="-1" data-for="ivDef4" aria-label="Obrana −">−</button><input type="number" inputmode="numeric" id="ivDef4" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivDef4" aria-label="Obrana +">+</button></div></div><div><label for="ivSta4">Výdrž</label><div class="step"><button type="button" data-step="-1" data-for="ivSta4" aria-label="Výdrž −">−</button><input type="number" inputmode="numeric" id="ivSta4" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivSta4" aria-label="Výdrž +">+</button></div></div></div></div><div class="calc-set" id="calcSet5" style="display:none"><div class="calc-set-head"><h3>Varianta 5</h3><button type="button" class="calc-remove" data-remove-set="5">Odebrat</button></div><input class="iv-quick" data-set="5" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV varianty 5"><div class="calc"><div><label for="ivAtk5">Útok</label><div class="step"><button type="button" data-step="-1" data-for="ivAtk5" aria-label="Útok −">−</button><input type="number" inputmode="numeric" id="ivAtk5" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivAtk5" aria-label="Útok +">+</button></div></div><div><label for="ivDef5">Obrana</label><div class="step"><button type="button" data-step="-1" data-for="ivDef5" aria-label="Obrana −">−</button><input type="number" inputmode="numeric" id="ivDef5" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivDef5" aria-label="Obrana +">+</button></div></div><div><label for="ivSta5">Výdrž</label><div class="step"><button type="button" data-step="-1" data-for="ivSta5" aria-label="Výdrž −">−</button><input type="number" inputmode="numeric" id="ivSta5" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivSta5" aria-label="Výdrž +">+</button></div></div></div></div><div class="calc-set" id="calcSet6" style="display:none"><div class="calc-set-head"><h3>Varianta 6</h3><button type="button" class="calc-remove" data-remove-set="6">Odebrat</button></div><input class="iv-quick" data-set="6" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV varianty 6"><div class="calc"><div><label for="ivAtk6">Útok</label><div class="step"><button type="button" data-step="-1" data-for="ivAtk6" aria-label="Útok −">−</button><input type="number" inputmode="numeric" id="ivAtk6" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivAtk6" aria-label="Útok +">+</button></div></div><div><label for="ivDef6">Obrana</label><div class="step"><button type="button" data-step="-1" data-for="ivDef6" aria-label="Obrana −">−</button><input type="number" inputmode="numeric" id="ivDef6" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivDef6" aria-label="Obrana +">+</button></div></div><div><label for="ivSta6">Výdrž</label><div class="step"><button type="button" data-step="-1" data-for="ivSta6" aria-label="Výdrž −">−</button><input type="number" inputmode="numeric" id="ivSta6" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivSta6" aria-label="Výdrž +">+</button></div></div></div></div><div class="calc-set" id="calcSet7" style="display:none"><div class="calc-set-head"><h3>Varianta 7</h3><button type="button" class="calc-remove" data-remove-set="7">Odebrat</button></div><input class="iv-quick" data-set="7" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV varianty 7"><div class="calc"><div><label for="ivAtk7">Útok</label><div class="step"><button type="button" data-step="-1" data-for="ivAtk7" aria-label="Útok −">−</button><input type="number" inputmode="numeric" id="ivAtk7" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivAtk7" aria-label="Útok +">+</button></div></div><div><label for="ivDef7">Obrana</label><div class="step"><button type="button" data-step="-1" data-for="ivDef7" aria-label="Obrana −">−</button><input type="number" inputmode="numeric" id="ivDef7" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivDef7" aria-label="Obrana +">+</button></div></div><div><label for="ivSta7">Výdrž</label><div class="step"><button type="button" data-step="-1" data-for="ivSta7" aria-label="Výdrž −">−</button><input type="number" inputmode="numeric" id="ivSta7" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivSta7" aria-label="Výdrž +">+</button></div></div></div></div><div class="calc-set" id="calcSet8" style="display:none"><div class="calc-set-head"><h3>Varianta 8</h3><button type="button" class="calc-remove" data-remove-set="8">Odebrat</button></div><input class="iv-quick" data-set="8" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV varianty 8"><div class="calc"><div><label for="ivAtk8">Útok</label><div class="step"><button type="button" data-step="-1" data-for="ivAtk8" aria-label="Útok −">−</button><input type="number" inputmode="numeric" id="ivAtk8" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivAtk8" aria-label="Útok +">+</button></div></div><div><label for="ivDef8">Obrana</label><div class="step"><button type="button" data-step="-1" data-for="ivDef8" aria-label="Obrana −">−</button><input type="number" inputmode="numeric" id="ivDef8" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivDef8" aria-label="Obrana +">+</button></div></div><div><label for="ivSta8">Výdrž</label><div class="step"><button type="button" data-step="-1" data-for="ivSta8" aria-label="Výdrž −">−</button><input type="number" inputmode="numeric" id="ivSta8" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivSta8" aria-label="Výdrž +">+</button></div></div></div></div><div class="calc-set" id="calcSet9" style="display:none"><div class="calc-set-head"><h3>Varianta 9</h3><button type="button" class="calc-remove" data-remove-set="9">Odebrat</button></div><input class="iv-quick" data-set="9" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV varianty 9"><div class="calc"><div><label for="ivAtk9">Útok</label><div class="step"><button type="button" data-step="-1" data-for="ivAtk9" aria-label="Útok −">−</button><input type="number" inputmode="numeric" id="ivAtk9" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivAtk9" aria-label="Útok +">+</button></div></div><div><label for="ivDef9">Obrana</label><div class="step"><button type="button" data-step="-1" data-for="ivDef9" aria-label="Obrana −">−</button><input type="number" inputmode="numeric" id="ivDef9" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivDef9" aria-label="Obrana +">+</button></div></div><div><label for="ivSta9">Výdrž</label><div class="step"><button type="button" data-step="-1" data-for="ivSta9" aria-label="Výdrž −">−</button><input type="number" inputmode="numeric" id="ivSta9" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivSta9" aria-label="Výdrž +">+</button></div></div></div></div><div class="calc-set" id="calcSet10" style="display:none"><div class="calc-set-head"><h3>Varianta 10</h3><button type="button" class="calc-remove" data-remove-set="10">Odebrat</button></div><input class="iv-quick" data-set="10" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV varianty 10"><div class="calc"><div><label for="ivAtk10">Útok</label><div class="step"><button type="button" data-step="-1" data-for="ivAtk10" aria-label="Útok −">−</button><input type="number" inputmode="numeric" id="ivAtk10" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivAtk10" aria-label="Útok +">+</button></div></div><div><label for="ivDef10">Obrana</label><div class="step"><button type="button" data-step="-1" data-for="ivDef10" aria-label="Obrana −">−</button><input type="number" inputmode="numeric" id="ivDef10" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivDef10" aria-label="Obrana +">+</button></div></div><div><label for="ivSta10">Výdrž</label><div class="step"><button type="button" data-step="-1" data-for="ivSta10" aria-label="Výdrž −">−</button><input type="number" inputmode="numeric" id="ivSta10" min="0" max="15" value="15"><button type="button" data-step="1" data-for="ivSta10" aria-label="Výdrž +">+</button></div></div></div></div></div>
     <button id="addCompareBtn" type="button">+ Přidat srovnání</button>
-    <div class="calc-actions">
-      <button id="calcBtn" type="button">Spočítat</button>
-    </div>
+    <div class="calc-actions"><button id="calcBtn" type="button">Spočítat</button></div>
     <div id="calcResult"></div>
+   </details>
   </section>
+ </div>
+ <div id="viewFav" hidden><section class="panel"><div id="favGrid" class="grid"></div></section></div>
+ <div id="viewCmp" hidden><section class="panel"><div class="cmp-pick"><input id="cmpA" list="names" placeholder="První Pokémon" autocomplete="off"><input id="cmpB" list="names" placeholder="Druhý Pokémon" autocomplete="off"></div><datalist id="names"></datalist><div id="cmpOut"></div></section></div>
 </main>
-<footer>
-  Pokémon GO databáze — ideální IV a nejlepší útoky do jednotlivých lig.
-</footer>
+<footer>Pokémon GO databáze — ideální IV a nejlepší útoky do jednotlivých lig.</footer>
 <script src="app.js"></script>
 </body>
 </html>
