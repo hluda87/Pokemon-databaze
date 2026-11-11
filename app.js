@@ -1,10 +1,412 @@
 // Pokémon GO databáze — čistý HTML/CSS/JS, bez build kroku.
-// Data se načítají z otevřených dat PvPoke, obrázky z PokeAPI sprites.
+// Data se načítají z otevřených dat PvPoke, obrázky z PokeMiners (herní ikony GO), záloha PokeAPI.
 
 var PVPOKE_BASE = 'https://raw.githubusercontent.com/pvpoke/pvpoke/master/src/data/';
 var POGOAPI_BASE = 'https://pogoapi.net/api/v1/';
 var SPRITE_BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
 var ARTWORK_BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/';
+
+// ---------- Obrázky z Pokémon GO (PokeMiners) ----------
+// Primární zdroj obrázků jsou skutečné herní ikony z Pokémon GO
+// (repo PokeMiners/pogo_assets), každá forma má vlastní soubor.
+// PM_ICON: speciesId -> kód souboru bez 'pm{dex}.' a '.icon.png'
+// (např. 'fMEGA_X'); druh bez záznamu = základní ikona pm{dex}.icon.png;
+// '!' = druh v GO zatím není a ikonu nemá – použije se PokeAPI.
+// Shadow formy vlastní soubor v herních datech nemají (hra fialovou
+// auru vykresluje jako efekt přes běžnou ikonu), proto dostávají ikonu
+// své formy a v aplikaci fialovou záři + odznak Shadow.
+var PM_BASE = 'https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Pokemon%20-%20256x256/Addressable%20Assets/';
+var PM_ICON = {
+  'abomasnow_mega': 'fMEGA',
+  'absol_mega': 'fMEGA',
+  'aegislash_blade': 'fBLADE',
+  'aegislash_shield': 'fSHIELD',
+  'aerodactyl_mega': 'fMEGA',
+  'aggron_mega': 'fMEGA',
+  'alakazam_mega': 'fMEGA',
+  'alcremie': '!',
+  'altaria_mega': 'fMEGA',
+  'ampharos_mega': 'fMEGA',
+  'arcanine_hisuian': 'fHISUIAN',
+  'arceus_bug': 'fBUG',
+  'arceus_dark': 'fDARK',
+  'arceus_dragon': 'fDRAGON',
+  'arceus_electric': 'fELECTRIC',
+  'arceus_fairy': 'fFAIRY',
+  'arceus_fighting': 'fFIGHTING',
+  'arceus_fire': 'fFIRE',
+  'arceus_flying': 'fFLYING',
+  'arceus_ghost': 'fGHOST',
+  'arceus_grass': 'fGRASS',
+  'arceus_ground': 'fGROUND',
+  'arceus_ice': 'fICE',
+  'arceus_poison': 'fPOISON',
+  'arceus_psychic': 'fPSYCHIC',
+  'arceus_rock': 'fROCK',
+  'arceus_steel': 'fSTEEL',
+  'arceus_water': 'fWATER',
+  'archaludon': '!',
+  'arctovish': '!',
+  'arctozolt': '!',
+  'articuno_galarian': 'fGALARIAN',
+  'audino_mega': 'fMEGA',
+  'avalugg_hisuian': 'fHISUIAN',
+  'banette_mega': 'fMEGA',
+  'basculegion_female': '!',
+  'basculegion_male': '!',
+  'basculin': 'fRED_STRIPED',
+  'beedrill_mega': 'fMEGA',
+  'blastoise_mega': 'fMEGA',
+  'blaziken_mega': 'fMEGA',
+  'braviary_hisuian': 'fHISUIAN',
+  'brutebonnet': '!',
+  'burmy_plant': 'fBURMY_PLANT',
+  'burmy_sandy': 'fBURMY_SANDY',
+  'burmy_trash': 'fBURMY_TRASH',
+  'calyrex': '!',
+  'calyrex_ice_rider': '!',
+  'camerupt_mega': 'fMEGA',
+  'capsakid': '!',
+  'castform_rainy': 'fRAINY',
+  'castform_snowy': 'fSNOWY',
+  'castform_sunny': 'fSUNNY',
+  'chandelure_mega': 'fMEGA',
+  'charizard_mega_x': 'fMEGA_X',
+  'charizard_mega_y': 'fMEGA_Y',
+  'cherrim_overcast': 'fOVERCAST',
+  'cherrim_sunny': 'fSUNNY',
+  'chesnaught_mega': 'fMEGA',
+  'chewtle': '!',
+  'chi_yu': '!',
+  'chien_pao': '!',
+  'copperajah': '!',
+  'corsola_galarian': 'fGALARIAN',
+  'cramorant_gorging': 'fGORGING',
+  'cramorant_gulping': 'fGULPING',
+  'cufant': '!',
+  'cyclizar': '!',
+  'darmanitan_galarian_standard': 'fGALARIAN_STANDARD',
+  'darmanitan_galarian_zen': 'fGALARIAN_ZEN',
+  'darmanitan_standard': 'fSTANDARD',
+  'darmanitan_standard_shadow': 'fSTANDARD',
+  'darmanitan_zen': 'fZEN',
+  'darumaka_galarian': 'fGALARIAN',
+  'decidueye_hisuian': 'fHISUIAN',
+  'deerling': 'fSPRING',
+  'delphox_mega': 'fMEGA',
+  'deoxys_attack': 'fATTACK',
+  'deoxys_defense': 'fDEFENSE',
+  'deoxys_speed': 'fSPEED',
+  'dialga_origin': 'fORIGIN',
+  'diancie_mega': 'fMEGA',
+  'diglett_alolan': 'fALOLA',
+  'diglett_alolan_shadow': 'fALOLA',
+  'dracovish': '!',
+  'dracozolt': '!',
+  'dragonite_mega': 'fMEGA',
+  'drednaw': '!',
+  'dugtrio_alolan': 'fALOLA',
+  'dugtrio_alolan_shadow': 'fALOLA',
+  'eiscue': '!',
+  'eiscue_ice': '!',
+  'eiscue_noice': '!',
+  'electrode_hisuian': 'fHISUIAN',
+  'enamorus_incarnate': 'fINCARNATE',
+  'enamorus_therian': 'fTHERIAN',
+  'eternatus_eternamax': 'fETERNAMAX',
+  'exeggutor_alolan': 'fALOLA',
+  'exeggutor_alolan_shadow': 'fALOLA',
+  'falinks_mega': 'fMEGA',
+  'farfetchd_galarian': 'fGALARIAN',
+  'farigiraf': '!',
+  'fezandipiti': '!',
+  'finizen': '!',
+  'floette': 'fRED',
+  'florges': 'fRED',
+  'fluttermane': '!',
+  'furfrou': 'fNATURAL',
+  'gallade_mega': 'fMEGA',
+  'garchomp_mega': 'fMEGA',
+  'gardevoir_mega': 'fMEGA',
+  'gastrodon': 'fWEST_SEA',
+  'genesect': 'fNORMAL',
+  'genesect_burn': 'fBURN',
+  'genesect_chill': 'fCHILL',
+  'genesect_douse': 'fDOUSE',
+  'genesect_shock': 'fSHOCK',
+  'gengar_mega': 'fMEGA',
+  'geodude_alolan': 'fALOLA',
+  'geodude_alolan_shadow': 'fALOLA',
+  'giratina_altered': 'fALTERED',
+  'giratina_altered_shadow': 'fALTERED',
+  'giratina_origin': 'fORIGIN',
+  'glalie_mega': 'fMEGA',
+  'glastrier': '!',
+  'golem_alolan': 'fALOLA',
+  'golem_alolan_shadow': 'fALOLA',
+  'goodra_hisuian': 'fHISUIAN',
+  'gouging_fire': '!',
+  'gourgeist_average': 'fAVERAGE',
+  'gourgeist_large': 'fLARGE',
+  'gourgeist_small': 'fSMALL',
+  'gourgeist_super': 'fSUPER',
+  'graveler_alolan': 'fALOLA',
+  'graveler_alolan_shadow': 'fALOLA',
+  'greattusk': '!',
+  'greninja_mega': 'fMEGA',
+  'grimer_alolan': 'fALOLA',
+  'grimer_alolan_shadow': 'fALOLA',
+  'groudon_primal': 'fPRIMAL',
+  'growlithe_hisuian': 'fHISUIAN',
+  'gyarados_mega': 'fMEGA',
+  'heracross_mega': 'fMEGA',
+  'hoopa_confined': 'fCONFINED',
+  'hoopa_unbound': 'fUNBOUND',
+  'houndoom_mega': 'fMEGA',
+  'indeedee_female': 'fFEMALE',
+  'indeedee_male': 'fMALE',
+  'iron_boulder': '!',
+  'iron_crown': '!',
+  'iron_leaves': '!',
+  'ironbundle': '!',
+  'ironhands': '!',
+  'ironjugulis': '!',
+  'ironmoth': '!',
+  'ironthorns': '!',
+  'irontreads': '!',
+  'ironvaliant': '!',
+  'kangaskhan_mega': 'fMEGA',
+  'keldeo_ordinary': 'fORDINARY',
+  'keldeo_resolute': 'fRESOLUTE',
+  'koraidon': '!',
+  'koraidon_apex': '!',
+  'kyogre_primal': 'fPRIMAL',
+  'kyurem': 'fNORMAL',
+  'kyurem_black': 'fBLACK',
+  'kyurem_white': 'fWHITE',
+  'landorus_incarnate': 'fINCARNATE',
+  'landorus_incarnate_shadow': 'fINCARNATE',
+  'landorus_therian': 'fTHERIAN',
+  'latias_mega': 'fMEGA',
+  'latios_mega': 'fMEGA',
+  'lilligant_hisuian': 'fHISUIAN',
+  'linoone_galarian': 'fGALARIAN',
+  'linoone_galarian_shadow': 'fGALARIAN',
+  'lopunny_mega': 'fMEGA',
+  'lucario_mega': 'fMEGA',
+  'lycanroc_dusk': 'fDUSK',
+  'lycanroc_midday': 'fMIDDAY',
+  'lycanroc_midnight': 'fMIDNIGHT',
+  'magearna': '!',
+  'malamar_mega': 'fMEGA',
+  'manectric_mega': 'fMEGA',
+  'marowak_alolan': 'fALOLA',
+  'marowak_alolan_shadow': 'fALOLA',
+  'maushold': 'fFAMILY_OF_FOUR',
+  'maushold_family_of_four': 'fFAMILY_OF_FOUR',
+  'maushold_family_of_three': 'fFAMILY_OF_THREE',
+  'mawile_mega': 'fMEGA',
+  'medicham_mega': 'fMEGA',
+  'meloetta_aria': 'fARIA',
+  'meloetta_pirouette': 'fPIROUETTE',
+  'meowstic_female': 'fFEMALE',
+  'meowth_alolan': 'fALOLA',
+  'meowth_galarian': 'fGALARIAN',
+  'metagross_mega': 'fMEGA',
+  'mewtwo_armored': 'fA',
+  'mewtwo_mega_x': 'fMEGA_X',
+  'mewtwo_mega_y': 'fMEGA_Y',
+  'milcery': '!',
+  'mimikyu': 'fDISGUISED',
+  'mimikyu_busted': 'fBUSTED',
+  'minior_core': 'fRED',
+  'minior_meteor': 'fMETEOR',
+  'miraidon': '!',
+  'miraidon_ultimate': '!',
+  'moltres_galarian': 'fGALARIAN',
+  'morpeko_full_belly': 'fFULL_BELLY',
+  'morpeko_hangry': 'fHANGRY',
+  'mr_mime_galarian': 'fGALARIAN',
+  'muk_alolan': 'fALOLA',
+  'muk_alolan_shadow': 'fALOLA',
+  'munkidori': '!',
+  'necrozma_dawn_wings': 'fDAWN_WINGS',
+  'necrozma_dusk_mane': 'fDUSK_MANE',
+  'ninetales_alolan': 'fALOLA',
+  'ninetales_alolan_shadow': 'fALOLA',
+  'ogerpon': '!',
+  'oinkologne_female': 'fFEMALE',
+  'okidogi': '!',
+  'oricorio_baile': 'fBAILE',
+  'oricorio_pau': 'fPAU',
+  'oricorio_pom_pom': 'fPOMPOM',
+  'oricorio_sensu': 'fSENSU',
+  'palafin': '!',
+  'palafin_hero': '!',
+  'palafin_zero': '!',
+  'palkia_origin': 'fORIGIN',
+  'pecharunt': '!',
+  'persian_alolan': 'fALOLA',
+  'pidgeot_mega': 'fMEGA',
+  'pikachu_5th_anniversary': 'fFLYING_5TH_ANNIV',
+  'pikachu_flying': 'fFLYING_01',
+  'pikachu_horizons': 'fHORIZONS',
+  'pikachu_kariyushi': 'fKARIYUSHI',
+  'pikachu_pop_star': 'fPOP_STAR',
+  'pikachu_rock_star': 'fROCK_STAR',
+  'pincurchin': '!',
+  'pinsir_mega': 'fMEGA',
+  'ponyta_galarian': 'fGALARIAN',
+  'pumpkaboo_average': 'fAVERAGE',
+  'pumpkaboo_large': 'fLARGE',
+  'pumpkaboo_small': 'fSMALL',
+  'pumpkaboo_super': 'fSUPER',
+  'qwilfish_hisuian': 'fHISUIAN',
+  'rabsca': '!',
+  'raging_bolt': '!',
+  'raichu_alolan': 'fALOLA',
+  'raichu_mega_x': 'fMEGA_X',
+  'raichu_mega_y': 'fMEGA_Y',
+  'rapidash_galarian': 'fGALARIAN',
+  'raticate_alolan': 'fALOLA',
+  'raticate_alolan_shadow': 'fALOLA',
+  'rattata_alolan': 'fALOLA',
+  'rattata_alolan_shadow': 'fALOLA',
+  'rayquaza_mega': 'fMEGA',
+  'rellor': '!',
+  'roaringmoon': '!',
+  'rotom_fan': 'fFAN',
+  'rotom_frost': 'fFROST',
+  'rotom_heat': 'fHEAT',
+  'rotom_mow': 'fMOW',
+  'rotom_wash': 'fWASH',
+  'sableye_mega': 'fMEGA',
+  'salamence_mega': 'fMEGA',
+  'samurott_hisuian': 'fHISUIAN',
+  'sandshrew_alolan': 'fALOLA',
+  'sandshrew_alolan_shadow': 'fALOLA',
+  'sandslash_alolan': 'fALOLA',
+  'sandslash_alolan_shadow': 'fALOLA',
+  'sandyshocks': '!',
+  'sawsbuck': 'fSPRING',
+  'sceptile_mega': 'fMEGA',
+  'scizor_mega': 'fMEGA',
+  'scovillain': '!',
+  'screamtail': '!',
+  'sharpedo_mega': 'fMEGA',
+  'shaymin_land': 'fLAND',
+  'shaymin_sky': 'fSKY',
+  'shellos': 'fWEST_SEA',
+  'silvally': '!',
+  'silvally_bug': '!',
+  'silvally_dark': '!',
+  'silvally_dragon': '!',
+  'silvally_electric': '!',
+  'silvally_fairy': '!',
+  'silvally_fighting': '!',
+  'silvally_fire': '!',
+  'silvally_flying': '!',
+  'silvally_ghost': '!',
+  'silvally_grass': '!',
+  'silvally_ground': '!',
+  'silvally_ice': '!',
+  'silvally_poison': '!',
+  'silvally_psychic': '!',
+  'silvally_rock': '!',
+  'silvally_steel': '!',
+  'silvally_water': '!',
+  'skarmory_mega': 'fMEGA',
+  'sliggoo_hisuian': 'fHISUIAN',
+  'slitherwing': '!',
+  'slowbro_galarian': 'fGALARIAN',
+  'slowbro_mega': 'fMEGA',
+  'slowking_galarian': 'fGALARIAN',
+  'slowpoke_galarian': 'fGALARIAN',
+  'sneasel_hisuian': 'fHISUIAN',
+  'sneasel_hisuian_shadow': 'fHISUIAN',
+  'spectrier': '!',
+  'spinda': 'f00',
+  'squawkabilly': 'fGREEN',
+  'staraptor_mega': 'fMEGA',
+  'starmie_mega': 'fMEGA',
+  'steelix_mega': 'fMEGA',
+  'stunfisk_galarian': 'fGALARIAN',
+  'swampert_mega': 'fMEGA',
+  'tatsugiri_curly': 'fCURLY',
+  'tatsugiri_droopy': 'fDROOPY',
+  'tatsugiri_stretchy': 'fSTRETCHY',
+  'tauros_aqua': 'fPALDEA_AQUA',
+  'tauros_blaze': 'fPALDEA_BLAZE',
+  'tauros_combat': 'fPALDEA_COMBAT',
+  'terapagos': '!',
+  'thundurus_incarnate': 'fINCARNATE',
+  'thundurus_incarnate_shadow': 'fINCARNATE',
+  'thundurus_therian': 'fTHERIAN',
+  'ting_lu': '!',
+  'tornadus_incarnate': 'fINCARNATE',
+  'tornadus_incarnate_shadow': 'fINCARNATE',
+  'tornadus_therian': 'fTHERIAN',
+  'toxtricity': 'fAMPED',
+  'toxtricity_amped': 'fAMPED',
+  'toxtricity_low_key': 'fLOW_KEY',
+  'type_null': '!',
+  'typhlosion_hisuian': 'fHISUIAN',
+  'tyranitar_mega': 'fMEGA',
+  'unown': 'fUNOWN_A',
+  'urshifu_rapid_strike': 'fRAPID_STRIKE',
+  'urshifu_single_strike': 'fSINGLE_STRIKE',
+  'veluza': '!',
+  'venusaur_mega': 'fMEGA',
+  'victreebel_mega': 'fMEGA',
+  'vivillon': 'fMEADOW',
+  'voltorb_hisuian': 'fHISUIAN',
+  'vulpix_alolan': 'fALOLA',
+  'vulpix_alolan_shadow': 'fALOLA',
+  'walking_wake': '!',
+  'weezing_galarian': 'fGALARIAN',
+  'weezing_galarian_shadow': 'fGALARIAN',
+  'wishiwashi': 'fSOLO',
+  'wishiwashi_school': 'fSCHOOL',
+  'wishiwashi_solo': 'fSOLO',
+  'wo_chien': '!',
+  'wooper_paldean': 'fPALDEA',
+  'wormadam_plant': 'fWORMADAM_PLANT',
+  'wormadam_sandy': 'fWORMADAM_SANDY',
+  'wormadam_trash': 'fWORMADAM_TRASH',
+  'yamask_galarian': 'fGALARIAN',
+  'zacian_crowned_sword': 'fCROWNED_SWORD',
+  'zacian_hero': 'fHERO',
+  'zamazenta_crowned_shield': 'fCROWNED_SHIELD',
+  'zamazenta_hero': 'fHERO',
+  'zapdos_galarian': 'fGALARIAN',
+  'zigzagoon_galarian': 'fGALARIAN',
+  'zigzagoon_galarian_shadow': 'fGALARIAN',
+  'zoroark_hisuian': 'fHISUIAN',
+  'zorua_hisuian': 'fHISUIAN',
+  'zygarde': 'fFIFTY_PERCENT',
+  'zygarde_10': 'fTEN_PERCENT',
+  'zygarde_complete': 'fCOMPLETE'
+};
+function pmIconUrl(p) {
+  if (typeof p.dex !== 'number') return null;
+  var code = PM_ICON[p.speciesId];
+  if (code === '!') return null;
+  return PM_BASE + 'pm' + p.dex + (code ? '.' + code : '') + '.icon.png';
+}
+function isShadowMon(p) { return !!p && /_shadow$/.test(p.speciesId || ''); }
+function imgErr(el) {
+  var fb = el.getAttribute('data-fb');
+  if (fb) { el.removeAttribute('data-fb'); el.src = fb; }
+  else { el.style.display = 'none'; }
+}
+// <img> Pokémona: PokeMiners ikona, při její chybě obrázek z PokeAPI, pak skrýt.
+function monImg(p, kind, cls, alt) {
+  if (typeof p.dex !== 'number') return '';
+  var fb = (kind === 'art' ? ARTWORK_BASE : SPRITE_BASE) + p.dex + '.png';
+  var src = pmIconUrl(p) || fb;
+  return '<img' + (cls ? ' class="' + cls + '"' : '') + ' src="' + src + '" data-fb="' + fb +
+    '" alt="' + (alt || '') + '" loading="lazy" onerror="imgErr(this)">';
+}
 
 // CPM pro levely 1 až 51 s krokem 0,5 (index i => level 1 + i * 0,5).
 // Hodnoty převzaté z PvPoke (src/js/pokemon/Pokemon.js): level 40 = 0,7903,
@@ -232,7 +634,7 @@ function renderHistory() {
   if (!searchHistory.length) { box.innerHTML = ''; return; }
   var chips = searchHistory.map(function (e) {
     var img = (typeof e.dex === 'number')
-      ? '<img src="' + SPRITE_BASE + e.dex + '.png" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+      ? monImg(e, 'sprite', isShadowMon(e) ? 'shadow-fx' : '', '')
       : '';
     return '<button type="button" class="hist-chip" data-hist="' + esc(e.speciesId) + '">' + img +
       '<span class="h-name">' + esc(e.speciesName) + '</span>' +
@@ -399,7 +801,7 @@ function renderGrid(reset) {
   var html = '';
   next.forEach(function (p) {
     var img = (typeof p.dex === 'number')
-      ? '<img src="' + SPRITE_BASE + p.dex + '.png" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+      ? monImg(p, 'sprite', isShadowMon(p) ? 'shadow-fx' : '', '')
       : '';
     html += '<div class="poke-card" data-id="' + esc(p.speciesId) + '">' + favStar(p.speciesId) + img +
       '<div class="dex">#' + (typeof p.dex === 'number' ? p.dex : '?') + '</div>' +
@@ -723,7 +1125,7 @@ function fillEvolution(p) {
       if (!entry) return '';
       return '<button class="evo-btn' + (st.dex === p.dex ? ' active' : '') +
         '" data-evo="' + esc(entry.speciesId) + '">' +
-        '<img src="' + SPRITE_BASE + st.dex + '.png" alt="" loading="lazy" onerror="this.style.display=\'none\'">' +
+        monImg(entry, 'sprite', '', '') +
         '<span>#' + st.dex + ' ' + esc(entry.speciesName) + '</span></button>';
     }).join('');
     if (!btns) { box.innerHTML = ''; return; }
@@ -744,11 +1146,11 @@ function showDetail(p) {
   openDetailUI(p);
   var el = document.getElementById('detailBody');
   var img = (typeof p.dex === 'number')
-    ? '<img class="artwork" src="' + ARTWORK_BASE + p.dex + '.png" alt="' + esc(p.speciesName) + '" onerror="this.style.display=\'none\'">'
+    ? monImg(p, 'art', 'artwork' + (isShadowMon(p) ? ' shadow-fx' : ''), esc(p.speciesName))
     : '';
   var html = '<div class="detail-head">' + img + '<div><h2 style="margin:0 0 6px">#' +
     (typeof p.dex === 'number' ? p.dex : '?') + ' ' + esc(p.speciesName) + '</h2>' +
-    '<div>' + typeChips(p.types) + '</div>' +
+    '<div>' + typeChips(p.types) + (isShadowMon(p) ? ' <span class="shadow-badge">Shadow</span>' : '') + '</div>' +
     '<p style="color:var(--muted);font-size:14px">Základní statistiky: útok ' + p.baseStats.atk +
     ' · obrana ' + p.baseStats.def + ' · výdrž ' + p.baseStats.hp + '</p></div></div>';
   html += '<div id="evoBox"><p style="color:var(--muted);font-size:14px;margin:10px 0 0">Vývojová řada: načítám…</p></div>';
@@ -996,7 +1398,7 @@ function refreshFavs() {
 function cardHtml(p) {
   var types = (p.types || []).filter(function (t) { return t !== 'none'; }).map(function (t) { return TYPE_NAMES[t] || t; }).join(' / ');
   return '<div class="poke-card" data-id="' + esc(p.speciesId) + '">' + favStar(p.speciesId) +
-    (typeof p.dex === 'number' ? '<img src="' + SPRITE_BASE + p.dex + '.png" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
+    monImg(p, 'sprite', isShadowMon(p) ? 'shadow-fx' : '', '') +
     '<div class="dex">#' + (typeof p.dex === 'number' ? p.dex : '?') + '</div><div class="name">' + esc(p.speciesName) +
     '</div><div class="types">' + types + '</div></div>';
 }
@@ -1052,7 +1454,7 @@ function renderCmp() {
     return '<tr><th>' + label + '</th><td class="' + (va > vb ? 'win' : '') + '">' + f(va) + '</td><td class="' + (vb > va ? 'win' : '') + '">' + f(vb) + '</td></tr>';
   }
   function head(p) {
-    return (typeof p.dex === 'number' ? '<img src="' + SPRITE_BASE + p.dex + '.png" alt=""><br>' : '') + esc(p.speciesName);
+    return monImg(p, 'sprite', isShadowMon(p) ? 'shadow-fx' : '', '') + (typeof p.dex === 'number' ? '<br>' : '') + esc(p.speciesName);
   }
   var rows = '<tr><th></th><td>' + head(a) + '</td><td>' + head(b) + '</td></tr>';
   [['Útok', 'atk'], ['Obrana', 'def'], ['Výdrž', 'hp']].forEach(function (r) { rows += row(r[0], a.baseStats[r[1]], b.baseStats[r[1]], String); });

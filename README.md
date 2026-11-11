@@ -13,7 +13,8 @@ stránky na plochu telefonu.
 - **Vyhledávání** konkrétního Pokémona podle jména (část názvu, bez rozlišení
   velikosti písmen) nebo čísla v Pokédexu. Aplikace je určená k dohledání
   jednoho Pokémona, proto nemá žádné filtry podle typu, generace ani formy.
-- **Přehled** všech Pokémonů s obrázkem z PokeAPI sprites.
+- **Přehled** všech Pokémonů s obrázkem – herní ikonou z Pokémon GO
+  (PokeMiners), pro každou formu vlastní.
 - **Historie vyhledávání**: pod vyhledávacím polem se jako posuvný proužek
   kulatých tlačítek (obrázek, jméno a číslo v Pokédexu) ukazuje posledních
   10 zobrazených Pokémonů, nejnovější první. Kliknutí znovu otevře kartu,
@@ -119,9 +120,15 @@ pořadí útočníků podle typů může lišit.
 - PogoAPI (`pogoapi.net/api/v1/fast_moves.json` a `charged_moves.json`) —
   PvE parametry útoků pro hodnocení gymů a raidů. Také nepovinné: při
   chybě načtení se blok „Gymy a raidy“ na kartě jen nezobrazí.
-- Obrázky: PokeAPI sprites
-  (`raw.githubusercontent.com/PokeAPI/sprites/...`). Chybějící obrázek se
-  skryje, aplikace nespadne.
+- Obrázky: herní ikony z Pokémon GO (repozitář PokeMiners/pogo_assets,
+  složka `Images/Pokemon - 256x256/Addressable Assets`) – každá forma má
+  vlastní soubor podle mapování `PM_ICON` v `app.js` (sestaveno z výpisů
+  repozitáře a ověřeno pro všech 1 752 druhů). Druhy, které v GO zatím
+  nejsou (86), a chybějící soubory se zálohují obrázkem z PokeAPI sprites
+  (`raw.githubusercontent.com/PokeAPI/sprites/...`). Shadow formy vlastní
+  ikonu v herních datech nemají – hra fialovou auru kreslí jako efekt přes
+  běžnou ikonu; aplikace proto používá ikonu dané formy s fialovou září
+  a odznakem Shadow. Chybějící obrázek se skryje, aplikace nespadne.
 - GamePress (dnes PokéBase, `pokebase.app`) — pouze referenční zdroj
   uvedený zde pro úplnost informací o tom, odkud se informace o ideálních
   PvP movesetech ověřovaly. GamePress oddělené movesety podle lig nevede –
