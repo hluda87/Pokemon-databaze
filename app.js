@@ -1120,12 +1120,37 @@ function fillEvolution(p) {
   loadEvolutionStages(p.dex).then(function (stages) {
     if (!selected || selected.speciesId !== p.speciesId) return; // detail už ukazuje jiného Pokémona
     if (!stages || !stages.length) { box.innerHTML = ''; return; }
+    // Jednotlivé fáze vedou na stejnou formu, jakou má zobrazený Pokémon
+    // (Shadow, regionální i jinou formu téhož druhu), pokud pro ni v datech
+    // záznam existuje. Přípona formy se odvozuje z jeho speciesId (např.
+    // rattata_alolan_shadow → „_alolan_shadow") a při neúspěchu se postupně
+    // zkracuje; nakonec se použije základní záznam druhu. Fáze samotného
+    // zobrazeného Pokémona vždy odkazuje přímo na něj.
+    var curStage = null;
+    stages.forEach(function (st) { if (st.dex === p.dex) curStage = st; });
+    var formSuffix = '';
+    if (curStage) {
+      var baseSid = speciesIdFromApi(curStage.name);
+      if (baseSid && p.speciesId.indexOf(baseSid) === 0) formSuffix = p.speciesId.slice(baseSid.length);
+    }
     var btns = stages.map(function (st) {
       var entry = findSpeciesEntry(st.name, st.dex);
       if (!entry) return '';
+      if (st.dex === p.dex) {
+        entry = p;
+      } else if (formSuffix) {
+        var cands = [formSuffix];
+        if (/_shadow$/.test(formSuffix)) cands.push('_shadow');
+        var suf = formSuffix;
+        while (suf.lastIndexOf('_') > 0) { suf = suf.slice(0, suf.lastIndexOf('_')); cands.push(suf); }
+        for (var ci = 0; ci < cands.length; ci++) {
+          var formEntry = byId(entry.speciesId + cands[ci]);
+          if (formEntry) { entry = formEntry; break; }
+        }
+      }
       return '<button class="evo-btn' + (st.dex === p.dex ? ' active' : '') +
         '" data-evo="' + esc(entry.speciesId) + '">' +
-        monImg(entry, 'sprite', '', '') +
+        monImg(entry, 'sprite', isShadowMon(entry) ? 'shadow-fx' : '', '') +
         '<span>#' + st.dex + ' ' + esc(entry.speciesName) + '</span></button>';
     }).join('');
     if (!btns) { box.innerHTML = ''; return; }
