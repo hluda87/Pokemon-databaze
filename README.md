@@ -6,12 +6,16 @@ Statická webová aplikace (čistý HTML/CSS/JS, žádný build krok). Stačí o
 Ikona aplikace (lupa nad Pokéballem na modrém pozadí, návrh č. 4 vybraný
 uživatelem 3. 11. 2026) je v souborech `icon-512.png` a `icon-192.png`
 a je v `index.html` zapojená jako favicon i apple-touch-icon pro přidání
-stránky na plochu telefonu.
+stránky na plochu telefonu. Aplikace je zároveň **PWA**: má
+`manifest.webmanifest` a service worker (`sw.js`), takže ji jde
+nainstalovat na plochu a funguje i offline (obrázky a data se ukládají
+do mezipaměti a na pozadí se obnovují).
 
 ## Co aplikace umí
 
 - **Vyhledávání** konkrétního Pokémona podle jména (část názvu, bez rozlišení
-  velikosti písmen) nebo čísla v Pokédexu. Aplikace je určená k dohledání
+  velikosti písmen **a bez diakritiky** – háčky a čárky není třeba psát)
+  nebo čísla v Pokédexu. Aplikace je určená k dohledání
   jednoho Pokémona, proto nemá žádné filtry podle typu, generace ani formy.
 - **Přehled** všech Pokémonů s obrázkem – herní ikonou z Pokémon GO
   (PokeMiners), pro každou formu vlastní.
@@ -22,12 +26,20 @@ stránky na plochu telefonu.
   duplicit). Historie se ukládá do `localStorage` prohlížeče, takže vydrží
   i po obnovení stránky, a jde vymazat tlačítkem „Vymazat“. Když je historie
   prázdná, proužek se nezobrazuje.
-- **Detailní karta** vybraného Pokémona: velký oficiální artwork, typy, základní
-  statistiky, **přepínač vývojových fází** (posuvný pás tlačítek s obrázky
+- **Detailní karta** vybraného Pokémona se otevírá jako samostatná
+  obrazovka s vlastním odkazem (např. `#charizard`) a tlačítkem Zpět:
+  velký obrázek (herní ikona z Pokémon GO od PokeMiners; oficiální
+  artwork z PokeAPI je jen záloha), typy, základní
+  statistiky, blok **Slabiny a odolnosti** (násobky poškození, které
+  Pokémon dostává od útoků jednotlivých typů), **přepínač vývojových
+  fází** (posuvný pás tlačítek s obrázky
   všech fází řady z evolučních řetězců PokeAPI, seřazených podle stupně
-  vývoje; kliknutí otevře kartu dané fáze) a pro každou ligu, ve které je
+  vývoje; kliknutí otevře kartu dané fáze – a fáze vedou na stejnou
+  formu, jakou má zobrazený Pokémon, tedy např. ze Shadow nebo
+  regionální formy na jejich vlastní vývojové fáze, pokud v datech
+  existují) a pro každou ligu, ve které je
   Pokémon hodnocený (Malá 500 CP, Velká 1500 CP, Ultra 2500 CP, Mistrovská
-  bez limitu). Liga, ve které Pokémon hodnocený není, se na kartě vůbec
+  bez limitu). Bloky lig a raidů jsou skládací karty. Liga, ve které Pokémon hodnocený není, se na kartě vůbec
   nezobrazuje; když není hodnocený v žádné lize, ukáže se místo lig jen
   stručná poznámka:
   - pořadí a skóre v žebříčku PvPoke (pokud se žebříčky podaří načíst),
@@ -56,8 +68,16 @@ stránky na plochu telefonu.
   STAB a efektů. Blok se ukazuje jen když se podaří načíst PvE data
   a pro daného Pokémona jde kombinace spočítat; samotný výpis všech
   dostupných útoků se ani tady nezobrazuje.
-- **IV kalkulačka**: po výběru Pokémona zadej IV (útok/obrana/výdrž 0–15) —
-  výsledky se ukážou pro všechny ligy najednou, liga se nevybírá. S jednou
+- **Oblíbení**: Pokémona jde označit hvězdičkou a zobrazit si jen
+  oblíbené; výběr se ukládá do `localStorage` prohlížeče.
+- **Srovnání dvou Pokémonů**: dva vybraní Pokémoni vedle sebe se
+  základními statistikami; lepší hodnota v řádku se zvýrazní.
+- **Tmavý režim**: aplikace se přizpůsobí nastavení systému, režim jde
+  i ručně přepnout (automatický / světlý / tmavý).
+- **IV kalkulačka**: je přímo na kartě pod údaji Pokémona. IV
+  (útok/obrana/výdrž 0–15) jde zadat najednou ve tvaru `15/14/13` nebo
+  upravovat tlačítky +/−, přepočet je okamžitý. Výsledky se ukážou pro
+  všechny ligy najednou, liga se nevybírá. S jednou
   variantou je výsledek jedna tabulka (liga, pořadí ze všech 4096
   kombinací, level, CP). Součin statistik se v aplikaci nikde nezobrazuje
   (slouží jen vnitřně k určení pořadí kombinací).
@@ -123,7 +143,8 @@ pořadí útočníků podle typů může lišit.
 - Obrázky: herní ikony z Pokémon GO (repozitář PokeMiners/pogo_assets,
   složka `Images/Pokemon - 256x256/Addressable Assets`) – každá forma má
   vlastní soubor podle mapování `PM_ICON` v `app.js` (sestaveno z výpisů
-  repozitáře a ověřeno pro všech 1 752 druhů). Druhy, které v GO zatím
+  repozitáře a ověřeno pro všech 1 753 druhů; vlastní GO ikonu má
+  1 667 z nich). Druhy, které v GO zatím
   nejsou (86), a chybějící soubory se zálohují obrázkem z PokeAPI sprites
   (`raw.githubusercontent.com/PokeAPI/sprites/...`). Shadow formy vlastní
   ikonu v herních datech nemají – hra fialovou auru kreslí jako efekt přes
@@ -143,3 +164,11 @@ pořadí útočníků podle typů může lišit.
 Aplikace nepotřebuje žádný build ani server. Pro místní test stačí soubory
 otevřít v prohlížeči (pozor: některé prohlížeče blokují `fetch` z `file://`
 adresy — pak soubory naservíruj třeba příkazem `python3 -m http.server`).
+
+---
+
+README naposledy aktualizováno 14. 11. 2026. Aktualizace probíhá
+automaticky jednou měsíčně: přepočítají se počty druhů a pokrytí obrázků
+z aktuálních dat PvPoke a PokeMiners (včetně případné obnovy mapování
+`PM_ICON` v `app.js`) a popisy funkcí se srovnají se skutečným stavem
+aplikace; výsledek se ohlásí uživateli.
