@@ -3,6 +3,8 @@
 Statická webová aplikace (čistý HTML/CSS/JS, žádný build krok). Stačí otevřít
 `index.html` v prohlížeči — nebo soubory nasadit na libovolný statický hosting.
 
+Aktuální verze: **3.0** (od 17. 11. 2026). Verze 2.0 vyšla 10. 11. 2026.
+
 Ikona aplikace (lupa nad Pokéballem na modrém pozadí, návrh č. 4 vybraný
 uživatelem 3. 11. 2026) je v souborech `icon-512.png` a `icon-192.png`
 a je v `index.html` zapojená jako favicon i apple-touch-icon pro přidání
@@ -167,7 +169,7 @@ adresy — pak soubory naservíruj třeba příkazem `python3 -m http.server`).
 
 ---
 
-README naposledy aktualizováno 14. 11. 2026. Aktualizace probíhá
+README naposledy aktualizováno 17. 11. 2026. Aktualizace probíhá
 automaticky jednou měsíčně: přepočítají se počty druhů a pokrytí obrázků
 z aktuálních dat PvPoke a PokeMiners (včetně případné obnovy mapování
 `PM_ICON` v `app.js`) a popisy funkcí se srovnají se skutečným stavem
