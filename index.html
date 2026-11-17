@@ -95,7 +95,7 @@
   .calc-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin-top:12px; }
   #calcBtn { padding:10px 18px; font-size:15px; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; }
   #calcResult { margin-top:10px; font-size:14px; }
-  #calcResult tr.best-row td { background:var(--bestbg); }
+  #calcResult tr.best-row td, #ivCalcResult tr.best-row td { background:var(--bestbg); }
   .best-badge { display:inline-block; background:#16a34a; color:#fff; border-radius:999px; padding:0 8px; font-size:12px; margin-left:6px; }
   footer { color:var(--muted); font-size:13px; text-align:center; padding:8px 16px 24px; }
   @media (max-width:600px) {
@@ -136,12 +136,44 @@ details.league>summary::-webkit-details-marker{display:none}details.league>summa
 
   img.shadow-fx { filter: drop-shadow(0 0 8px rgba(124,58,237,.95)) drop-shadow(0 0 20px rgba(124,58,237,.5)); }
   .shadow-badge { display:inline-block; padding:2px 10px; border-radius:999px; background:#3b1470; color:#e9d5ff; font-size:12px; font-weight:700; letter-spacing:.5px; vertical-align:2px; }
+  header{position:relative}
+  .hbtns{display:flex;gap:8px;align-items:center}
+  #menuBtn{background:none;border:1px solid #475066;color:#fff;border-radius:8px;padding:6px 12px;font-size:16px;cursor:pointer}
+  #mainMenu{position:absolute;top:52px;right:12px;z-index:40;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:10px;width:min(320px,calc(100vw - 24px))}
+  #mainMenu .mm-title{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:2px 4px 8px}
+  #mainMenu .mm-item{display:block;width:100%;text-align:left;padding:11px 10px;margin:2px 0;border:1px solid var(--border);background:var(--soft);color:var(--text);border-radius:8px;font-size:15px;cursor:pointer}
+  #mainMenu .mm-item:hover{border-color:var(--accent2);background:var(--soft2)}
+  #mainMenu .mm-item small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+  .seg{display:flex;gap:4px;margin-bottom:14px}
+  .seg button{flex:1;padding:11px 6px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:15px;border-radius:8px;cursor:pointer}
+  .seg button.on{color:var(--text);border-color:var(--accent2);background:var(--soft2);font-weight:600}
+  .pickrow input{width:100%;padding:12px 14px;font-size:16px;border:1px solid var(--border);border-radius:10px}
+  .addbtn{margin-top:12px;padding:10px 18px;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer}
+  .addbtn:hover{border-color:var(--accent2);background:var(--soft2)}
+  #ivCalcResult{margin-top:10px;font-size:14px}
+  #ivCalcResult tr.best-row td{background:var(--bestbg)}
+  #specResult{margin-top:10px;font-size:14px}
+  .table-scroll{overflow-x:auto}
+  .spec-table td,.spec-table th{text-align:center}
+  .spec-table td:first-child,.spec-table th:first-child{text-align:left;white-space:nowrap}
+  .spec-table .cell-sub{color:var(--muted);font-size:12px;font-weight:400}
+  .spec-table td.best-cell{background:var(--bestbg)}
+  .spec-table tr.spec-group td{background:var(--soft2);font-weight:700;text-align:left}
+  .spec-table img{width:36px;height:36px;vertical-align:middle}
+  .spec-verdict{border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:12px}
+  .spec-verdict p{margin:4px 0;font-size:14px}
+  .spec-verdict img{width:44px;height:44px;vertical-align:middle}
 </style>
 </head>
 <body>
 <header>
- <div class="hrow"><h1>Pokémon GO databáze</h1><button id="themeBtn" type="button" aria-label="Přepnout vzhled">🌓</button></div>
+ <div class="hrow"><h1>Pokémon GO databáze</h1><div class="hbtns"><button id="menuBtn" type="button" aria-label="Menu" aria-expanded="false">☰</button><button id="themeBtn" type="button" aria-label="Přepnout vzhled">🌓</button></div></div>
  <nav class="tabs" id="tabs"><button type="button" data-view="search" class="on">Hledat</button><button type="button" data-view="fav">⭐ Oblíbení</button><button type="button" data-view="cmp">Srovnat</button></nav>
+ <div id="mainMenu" hidden>
+  <div class="mm-title">Kalkulačky</div>
+  <button type="button" class="mm-item" id="menuIv">IV kalkulačka<small>Pořadí IV kombinací jednoho Pokémona ve všech ligách</small></button>
+  <button type="button" class="mm-item" id="menuSpec">Porovnání jedinců<small>Několik jedinců jednoho druhu napříč vývojovými fázemi a ligami</small></button>
+ </div>
 </header>
 <main>
  <div id="viewSearch">
@@ -162,7 +194,26 @@ details.league>summary::-webkit-details-marker{display:none}details.league>summa
   </section>
  </div>
  <div id="viewFav" hidden><section class="panel"><div id="favGrid" class="grid"></div></section></div>
- <div id="viewCmp" hidden><section class="panel"><div class="cmp-pick"><input id="cmpA" list="names" placeholder="První Pokémon" autocomplete="off"><input id="cmpB" list="names" placeholder="Druhý Pokémon" autocomplete="off"></div><datalist id="names"></datalist><div id="cmpOut"></div></section></div>
+ <div id="viewCmp" hidden><section class="panel"><div class="cmp-pick"><input id="cmpA" list="names" placeholder="První Pokémon" autocomplete="off"><input id="cmpB" list="names" placeholder="Druhý Pokémon" autocomplete="off"></div><div id="cmpOut"></div></section></div>
+ <div id="viewCalc" hidden><section class="panel">
+  <div class="seg"><button type="button" id="calcTabIv" class="on">IV kalkulačka</button><button type="button" id="calcTabSpec">Porovnání jedinců</button></div>
+  <div id="panelIvCalc">
+   <p class="muted">Vyber Pokémona a zadej IV – výsledky uvidíš pro všechny ligy najednou. Tlačítkem „Přidat srovnání“ porovnáš až deset kombinací. Stejnou kalkulačku najdeš i na kartě každého Pokémona.</p>
+   <div class="pickrow"><input id="ivCalcPick" list="names" placeholder="Jméno Pokémona" autocomplete="off"></div>
+   <div class="calc-sets" id="ivCalcSets"></div>
+   <button id="ivCalcAdd" class="addbtn" type="button">+ Přidat srovnání</button>
+   <div id="ivCalcResult"></div>
+  </div>
+  <div id="panelSpec" hidden>
+   <p class="muted">Máš víc jedinců jednoho druhu a nevíš, kterého kam vyvinout? Vyber druh, zadej IV svých jedinců (až deset) a uvidíš pro každého jeho nejlepší využití i celou tabulku – všechny vývojové fáze × všechny ligy.</p>
+   <div class="pickrow"><input id="specPick" list="names" placeholder="Jméno Pokémona (druh)" autocomplete="off"></div>
+   <div id="specFamily"></div>
+   <div class="calc-sets" id="specSets"></div>
+   <button id="specAdd" class="addbtn" type="button">+ Přidat jedince</button>
+   <div id="specResult"></div>
+  </div>
+ </section></div>
+ <datalist id="names"></datalist>
 </main>
 <footer>Pokémon GO databáze — ideální IV a nejlepší útoky do jednotlivých lig.</footer>
 <script src="app.js"></script>

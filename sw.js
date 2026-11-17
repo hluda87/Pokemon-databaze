@@ -1,6 +1,6 @@
 // Service worker: aplikace a data se ukládají do cache, takže se příště otevřou rychle a fungují i bez internetu.
 // Cache se obnovuje na pozadí (stale-while-revalidate): nová verze se projeví při dalším otevření.
-var V = 'pgo-v1';
+var V = 'pgo-v2';
 var SHELL = ['./', 'index.html', 'app.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(V).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));

@@ -89,6 +89,16 @@ do mezipaměti a na pozadí se obnovují).
   zvlášť; přidané varianty jdou zase odebrat. Seznamy kombinací se pro
   daného Pokémona a ligu počítají jen jednou a sdílí se s tabulkami
   ideálních IV na kartě (cache), takže opakované výpočty jsou okamžité.
+- **Porovnání jedinců** (hamburger menu ☰ → **Kalkulačky**, kde je
+  i samostatná IV kalkulačka s vlastním výběrem Pokémona): pro až deset
+  jedinců jednoho druhu spočítá pořadí jejich IV kombinace ve **všech
+  vývojových fázích a všech ligách**. Každý jedinec má nahoře verdikt
+  se svým nejlepším využitím (fáze a liga, kde jeho IV kombinace dosáhne
+  nejvyššího percentilu) a nejlepší jedinec ze všech je označený; pod
+  verdikty je celá matice fáze × liga v jedné přehledné tabulce, kde je
+  u každého jedince jeho nejlepší buňka zvýrazněná. Vývojové fáze se
+  berou z evolučních řetězců PokeAPI a zachovávají formu vybraného druhu
+  (stejně jako přepínač fází na kartě).
 
 ## Jak se počítají ideální IV
 

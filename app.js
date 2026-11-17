@@ -550,6 +550,41 @@ function compareForPokemon(p, ivs, cap) {
   return { list: list, results: results };
 }
 
+// ---------- Porovnání jedinců napříč vývojovými fázemi a ligami ----------
+// Pro jednoho jedince (dané IV) a seznam fází vývojové řady spočítá do
+// matice fáze × liga: pořadí IV kombinace, level a CP. „Nejlepší využití"
+// je buňka s nejvyšším percentilem (podíl kombinací, které jedinec v dané
+// fázi a lize předčí); při shodě rozhoduje vyšší fáze, pak vyšší liga.
+// Percentil se v aplikaci jen zobrazuje u verdiktu, pořadí v buňkách je
+// stejné číslo jako v IV kalkulačce (ze sdílené cache seznamů kombinací).
+function specimenMatrix(entries, iv) {
+  var rows = entries.map(function (entry, si) {
+    var cells = LEAGUES.map(function (league) {
+      var list = rankedListFor(entry, league.cap);
+      var r = rankFromList(list, entry.baseStats, iv, league.cap);
+      return {
+        entry: entry, stageIndex: si, league: league, total: list.length,
+        rank: r.rank, mine: r.mine,
+        pct: r.rank ? (list.length - r.rank + 1) / list.length * 100 : null
+      };
+    });
+    return { entry: entry, stageIndex: si, cells: cells };
+  });
+  var best = null;
+  rows.forEach(function (row) {
+    row.cells.forEach(function (c) {
+      if (!c.mine) return;
+      if (!best || c.pct > best.pct + 1e-9 ||
+          (Math.abs(c.pct - best.pct) <= 1e-9 &&
+            (c.stageIndex > best.stageIndex ||
+              (c.stageIndex === best.stageIndex && c.league.cap > best.league.cap)))) {
+        best = c;
+      }
+    });
+  });
+  return { rows: rows, best: best };
+}
+
 // ---------- Názvy typů česky ----------
 var TYPE_NAMES = {
   normal: 'Normální', fire: 'Ohnivý', water: 'Vodní', grass: 'Travní',
@@ -1113,6 +1148,42 @@ function loadEvolutionStages(dex) {
   return evoCache[dex];
 }
 
+// Přiřadí k fázím vývojové řady konkrétní záznamy z dat: každá fáze vede
+// na stejnou formu, jakou má zobrazený Pokémon (Shadow, regionální i jinou
+// formu téhož druhu), pokud pro ni záznam existuje. Přípona formy se
+// odvozuje ze speciesId Pokémona (např. rattata_alolan_shadow →
+// „_alolan_shadow") a při neúspěchu se postupně zkracuje; nakonec se
+// použije základní záznam druhu. Fáze samotného Pokémona vždy odkazuje
+// přímo na něj. Vrací [{ stage, entry }] jen pro fáze se záznamem.
+function resolveStageEntries(p, stages) {
+  var curStage = null;
+  stages.forEach(function (st) { if (st.dex === p.dex) curStage = st; });
+  var formSuffix = '';
+  if (curStage) {
+    var baseSid = speciesIdFromApi(curStage.name);
+    if (baseSid && p.speciesId.indexOf(baseSid) === 0) formSuffix = p.speciesId.slice(baseSid.length);
+  }
+  var out = [];
+  stages.forEach(function (st) {
+    var entry = findSpeciesEntry(st.name, st.dex);
+    if (!entry) return;
+    if (st.dex === p.dex) {
+      entry = p;
+    } else if (formSuffix) {
+      var cands = [formSuffix];
+      if (/_shadow$/.test(formSuffix)) cands.push('_shadow');
+      var suf = formSuffix;
+      while (suf.lastIndexOf('_') > 0) { suf = suf.slice(0, suf.lastIndexOf('_')); cands.push(suf); }
+      for (var ci = 0; ci < cands.length; ci++) {
+        var formEntry = byId(entry.speciesId + cands[ci]);
+        if (formEntry) { entry = formEntry; break; }
+      }
+    }
+    out.push({ stage: st, entry: entry });
+  });
+  return out;
+}
+
 function fillEvolution(p) {
   var box = document.getElementById('evoBox');
   if (!box) return;
@@ -1120,34 +1191,8 @@ function fillEvolution(p) {
   loadEvolutionStages(p.dex).then(function (stages) {
     if (!selected || selected.speciesId !== p.speciesId) return; // detail už ukazuje jiného Pokémona
     if (!stages || !stages.length) { box.innerHTML = ''; return; }
-    // Jednotlivé fáze vedou na stejnou formu, jakou má zobrazený Pokémon
-    // (Shadow, regionální i jinou formu téhož druhu), pokud pro ni v datech
-    // záznam existuje. Přípona formy se odvozuje z jeho speciesId (např.
-    // rattata_alolan_shadow → „_alolan_shadow") a při neúspěchu se postupně
-    // zkracuje; nakonec se použije základní záznam druhu. Fáze samotného
-    // zobrazeného Pokémona vždy odkazuje přímo na něj.
-    var curStage = null;
-    stages.forEach(function (st) { if (st.dex === p.dex) curStage = st; });
-    var formSuffix = '';
-    if (curStage) {
-      var baseSid = speciesIdFromApi(curStage.name);
-      if (baseSid && p.speciesId.indexOf(baseSid) === 0) formSuffix = p.speciesId.slice(baseSid.length);
-    }
-    var btns = stages.map(function (st) {
-      var entry = findSpeciesEntry(st.name, st.dex);
-      if (!entry) return '';
-      if (st.dex === p.dex) {
-        entry = p;
-      } else if (formSuffix) {
-        var cands = [formSuffix];
-        if (/_shadow$/.test(formSuffix)) cands.push('_shadow');
-        var suf = formSuffix;
-        while (suf.lastIndexOf('_') > 0) { suf = suf.slice(0, suf.lastIndexOf('_')); cands.push(suf); }
-        for (var ci = 0; ci < cands.length; ci++) {
-          var formEntry = byId(entry.speciesId + cands[ci]);
-          if (formEntry) { entry = formEntry; break; }
-        }
-      }
+    var btns = resolveStageEntries(p, stages).map(function (r) {
+      var st = r.stage, entry = r.entry;
       return '<button class="evo-btn' + (st.dex === p.dex ? ' active' : '') +
         '" data-evo="' + esc(entry.speciesId) + '">' +
         monImg(entry, 'sprite', isShadowMon(entry) ? 'shadow-fx' : '', '') +
@@ -1302,15 +1347,21 @@ function runCalculator() {
     if (!iv) return;
     variants.push({ n: n, iv: iv });
   }
+  renderCalcResults(selected, variants, out);
+}
+
+// Vykreslení výsledků IV kalkulačky pro daného Pokémona a seznam variant
+// [{ n, iv }]. Sdílí karta Pokémona i samostatná kalkulačka z menu.
+function renderCalcResults(p, variants, out) {
   var ivs = variants.map(function (v) { return v.iv; });
 
   // Výsledky se počítají pro všechny ligy najednou – výběr ligy není potřeba.
   if (variants.length === 1) {
-    var html = '<p><strong>' + esc(selected.speciesName) + ' ' + variants[0].iv.join('/') +
+    var html = '<p><strong>' + esc(p.speciesName) + ' ' + variants[0].iv.join('/') +
       '</strong> – výsledky pro všechny ligy:</p>';
     html += '<table><tr><th>Liga</th><th>Pořadí</th><th>Level</th><th>CP</th></tr>';
     LEAGUES.forEach(function (league) {
-      var cmp = compareForPokemon(selected, ivs, league.cap);
+      var cmp = compareForPokemon(p, ivs, league.cap);
       var r = cmp.results[0];
       var label = league.label + (league.cap === Infinity ? ' (bez limitu)' : ' (' + league.cap + ' CP)');
       if (!r.mine) {
@@ -1330,10 +1381,10 @@ function runCalculator() {
 
   // Dvě a více variant: pro každou ligu vlastní srovnávací tabulka,
   // nejlepší varianta se zvýrazní v každé lize zvlášť.
-  var out2 = '<p><strong>' + esc(selected.speciesName) + '</strong> – srovnání ' + variants.length +
+  var out2 = '<p><strong>' + esc(p.speciesName) + '</strong> – srovnání ' + variants.length +
     ' variant pro všechny ligy:</p>';
   LEAGUES.forEach(function (league) {
-    var cmp = compareForPokemon(selected, ivs, league.cap);
+    var cmp = compareForPokemon(p, ivs, league.cap);
     var label = league.label + (league.cap === Infinity ? ' (bez limitu)' : ' (' + league.cap + ' CP)');
     var bestNames = [];
     cmp.results.forEach(function (r, i) { if (r.isBest) bestNames.push('Varianta ' + variants[i].n); });
@@ -1370,7 +1421,7 @@ try { favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]') || []; } catch (e
 
 function setView(v) {
   curView = v;
-  ['search', 'fav', 'cmp'].forEach(function (k) { $('view' + k[0].toUpperCase() + k.slice(1)).hidden = k !== v; });
+  ['search', 'fav', 'cmp', 'calc'].forEach(function (k) { $('view' + k[0].toUpperCase() + k.slice(1)).hidden = k !== v; });
   document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.view === v); });
   if (v === 'fav') renderFavs();
   window.scrollTo(0, 0);
@@ -1493,6 +1544,262 @@ function renderCmp() {
   out.innerHTML = '<div style="overflow-x:auto"><table class="cmp-table">' + rows + '</table></div>';
 }
 
+// ---------- Kalkulačky z hamburger menu ----------
+// Samostatná IV kalkulačka (totéž co kalkulačka na kartě, jen s vlastním
+// výběrem Pokémona) a Porovnání jedinců: několik jedinců jednoho druhu
+// napříč vývojovými fázemi a ligami. Sady zadávání IV se generují kódem
+// (prefix odlišuje ID od kalkulačky na kartě), vzhled i chování tlačítek
+// je stejné jako na kartě.
+var SPEC_LIMIT = 10;
+
+function pickByName(v) {
+  var q = fold(v).trim();
+  if (!q) return null;
+  return pokemon.find(function (p) { return fold(p.speciesName) === q; }) || null;
+}
+
+function ivSetHtml(prefix, n, title, def) {
+  def = def || [15, 15, 15];
+  var fields = [['Atk', 'Útok'], ['Def', 'Obrana'], ['Sta', 'Výdrž']].map(function (L, i) {
+    var id = prefix + L[0] + n;
+    return '<div><label for="' + id + '">' + L[1] + '</label><div class="step">' +
+      '<button type="button" data-step="-1" data-for="' + id + '" aria-label="' + L[1] + ' −">−</button>' +
+      '<input type="number" inputmode="numeric" id="' + id + '" min="0" max="15" value="' + def[i] + '">' +
+      '<button type="button" data-step="1" data-for="' + id + '" aria-label="' + L[1] + ' +">+</button></div></div>';
+  }).join('');
+  return '<div class="calc-set" id="' + prefix + 'Set' + n + '"' + (n > 1 ? ' style="display:none"' : '') + '>' +
+    '<div class="calc-set-head"><h3>' + title + ' ' + n + '</h3>' +
+    (n > 1 ? '<button type="button" class="calc-remove" data-remove="' + n + '">Odebrat</button>' : '') + '</div>' +
+    '<input class="iv-quick" data-set="' + n + '" placeholder="Rychle: 15/14/13" aria-label="Rychlé zadání IV: ' +
+    title + ' ' + n + '"><div class="calc">' + fields + '</div></div>';
+}
+
+function setVisible(prefix, n) {
+  var el = $(prefix + 'Set' + n);
+  return !!el && el.style.display !== 'none';
+}
+
+function readSetIV(prefix, n, out, title) {
+  var iv = [
+    parseInt($(prefix + 'Atk' + n).value, 10),
+    parseInt($(prefix + 'Def' + n).value, 10),
+    parseInt($(prefix + 'Sta' + n).value, 10)
+  ];
+  if (iv.some(function (v) { return isNaN(v) || v < 0 || v > 15; })) {
+    out.textContent = title + ' ' + n + ': zadej IV hodnoty od 0 do 15.';
+    return null;
+  }
+  return iv;
+}
+
+// Napojí sady jednoho prefixu: přidávání/odebírání sad, kroková tlačítka,
+// rychlé zadání a přepočet při každé změně (se zpožděním jako na kartě).
+function wireSetBox(box, prefix, limit, addBtn, onChange) {
+  function updateAdd() {
+    var all = true;
+    for (var n = 2; n <= limit; n++) { if (!setVisible(prefix, n)) { all = false; break; } }
+    addBtn.style.display = all ? 'none' : '';
+  }
+  addBtn.addEventListener('click', function () {
+    for (var n = 2; n <= limit; n++) {
+      if (!setVisible(prefix, n)) { $(prefix + 'Set' + n).style.display = ''; break; }
+    }
+    updateAdd();
+    onChange();
+  });
+  var timer;
+  box.addEventListener('click', function (e) {
+    var rm = e.target.closest('[data-remove]');
+    if (rm) {
+      var el = $(prefix + 'Set' + rm.dataset.remove);
+      if (el) el.style.display = 'none';
+      updateAdd();
+      onChange();
+      return;
+    }
+    var b = e.target.closest('[data-step]');
+    if (!b) return;
+    var inp = $(b.dataset.for);
+    inp.value = Math.max(0, Math.min(15, (parseInt(inp.value, 10) || 0) + Number(b.dataset.step)));
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  box.addEventListener('input', function (e) {
+    var q = e.target;
+    if (q.classList.contains('iv-quick')) {
+      var m = q.value.match(/(\d{1,2})\D+(\d{1,2})\D+(\d{1,2})/);
+      if (m) ['Atk', 'Def', 'Sta'].forEach(function (k, i) { $(prefix + k + q.dataset.set).value = Math.min(15, Number(m[i + 1])); });
+    }
+    clearTimeout(timer);
+    timer = setTimeout(onChange, 250);
+  });
+  updateAdd();
+}
+
+// --- Samostatná IV kalkulačka ---
+var ivCalcSpecies = null;
+function runIvCalc() {
+  var out = $('ivCalcResult');
+  if (!ivCalcSpecies) { out.textContent = 'Nejdřív vyber Pokémona.'; return; }
+  var variants = [];
+  for (var n = 1; n <= COMPARE_LIMIT; n++) {
+    if (n > 1 && !setVisible('ivc', n)) continue;
+    var iv = readSetIV('ivc', n, out, 'Varianta');
+    if (!iv) return;
+    variants.push({ n: n, iv: iv });
+  }
+  renderCalcResults(ivCalcSpecies, variants, out);
+}
+
+// --- Porovnání jedinců ---
+var specSpecies = null, specEntries = null, specToken = 0;
+function onSpecPick() {
+  var p = pickByName($('specPick').value);
+  specSpecies = p;
+  specEntries = null;
+  $('specFamily').innerHTML = '';
+  var out = $('specResult');
+  if (!p) { out.textContent = pokemon.length ? 'Vyber druh ze seznamu – napiš jméno a vyber nabídnutou možnost.' : 'Data se ještě načítají…'; return; }
+  var token = ++specToken;
+  out.textContent = 'Načítám vývojovou řadu…';
+  if (typeof p.dex !== 'number') {
+    specEntries = [{ stage: null, entry: p }];
+    runSpecCalc();
+    return;
+  }
+  loadEvolutionStages(p.dex).then(function (stages) {
+    if (token !== specToken) return;
+    specEntries = (stages && stages.length) ? resolveStageEntries(p, stages) : [];
+    if (!specEntries.length) specEntries = [{ stage: null, entry: p }];
+    $('specFamily').innerHTML = '<p class="muted" style="margin:10px 0 0">Vývojová řada:</p>' +
+      '<div class="evo-strip">' + specEntries.map(function (r) {
+        return '<span class="evo-btn">' + monImg(r.entry, 'sprite', isShadowMon(r.entry) ? 'shadow-fx' : '', '') +
+          '<span>#' + r.entry.dex + ' ' + esc(r.entry.speciesName) + '</span></span>';
+      }).join('') + '</div>';
+    runSpecCalc();
+  });
+}
+
+function runSpecCalc() {
+  var out = $('specResult');
+  if (!specSpecies) { out.textContent = 'Nejdřív vyber druh Pokémona.'; return; }
+  if (!specEntries) { out.textContent = 'Načítám vývojovou řadu…'; return; }
+  var specimens = [];
+  for (var n = 1; n <= SPEC_LIMIT; n++) {
+    if (n > 1 && !setVisible('spc', n)) continue;
+    var iv = readSetIV('spc', n, out, 'Jedinec');
+    if (!iv) return;
+    specimens.push({ n: n, iv: iv });
+  }
+  renderSpecResults(specimens, out);
+}
+
+function renderSpecResults(specimens, out) {
+  var entries = specEntries.map(function (r) { return r.entry; });
+  var mats = specimens.map(function (s) {
+    return { n: s.n, iv: s.iv, m: specimenMatrix(entries, s.iv) };
+  });
+  var bestSpec = null;
+  mats.forEach(function (x) {
+    if (x.m.best && (!bestSpec || x.m.best.pct > bestSpec.m.best.pct + 1e-9)) bestSpec = x;
+  });
+
+  var html = '';
+  mats.forEach(function (x) {
+    var b = x.m.best;
+    html += '<div class="spec-verdict"><p>' + monImg(specSpecies, 'sprite', isShadowMon(specSpecies) ? 'shadow-fx' : '', '') +
+      ' <strong>Jedinec ' + x.n + '</strong> <span class="muted">IV ' + x.iv.join('/') + '</span>' +
+      (bestSpec === x && mats.length > 1 ? '<span class="best-badge">nejlepší jedinec</span>' : '') + '</p>';
+    if (b) {
+      html += '<p>Nejlepší využití: <strong>' + esc(b.entry.speciesName) + '</strong> · ' + b.league.label +
+        ' — pořadí <strong>#' + b.rank + '</strong> ze ' + b.total.toLocaleString('cs-CZ') +
+        ' · CP ' + b.mine.cp + ' · level ' + String(b.mine.level).replace('.', ',') + '</p>';
+    }
+    html += '</div>';
+  });
+
+  html += '<div class="table-scroll"><table class="spec-table"><tr><th>Jedinec / fáze</th>' +
+    LEAGUES.map(function (l) {
+      return '<th>' + l.label + '<br><span class="cell-sub">' +
+        (l.cap === Infinity ? 'bez limitu' : l.cap + ' CP') + '</span></th>';
+    }).join('') + '</tr>';
+  mats.forEach(function (x) {
+    html += '<tr class="spec-group"><td colspan="' + (LEAGUES.length + 1) + '">Jedinec ' + x.n +
+      ' — IV ' + x.iv.join('/') + '</td></tr>';
+    x.m.rows.forEach(function (row) {
+      html += '<tr><td>' + monImg(row.entry, 'sprite', isShadowMon(row.entry) ? 'shadow-fx' : '', '') + ' ' +
+        esc(row.entry.speciesName) + '</td>';
+      row.cells.forEach(function (c) {
+        if (!c.mine) {
+          html += '<td><span class="muted">nevejde se</span></td>';
+          return;
+        }
+        var isBest = x.m.best === c;
+        html += '<td' + (isBest ? ' class="best-cell"' : '') + '><strong>#' + c.rank + '</strong><br>' +
+          '<span class="cell-sub">CP ' + c.mine.cp + ' · lvl ' + String(c.mine.level).replace('.', ',') + '</span></td>';
+      });
+      html += '</tr>';
+    });
+  });
+  html += '</table></div>' +
+    '<p class="muted">Pořadí je umístění IV kombinace jedince mezi všemi kombinacemi dané fáze a ligy ' +
+    '(počítáno podle součinu statistik, stejně jako v IV kalkulačce). Zeleně je u každého jedince jeho nejlepší využití.</p>';
+  out.innerHTML = html;
+}
+
+// --- Menu a přepínání kalkulaček ---
+function switchCalcTab(which) {
+  $('panelIvCalc').hidden = which !== 'iv';
+  $('panelSpec').hidden = which !== 'spec';
+  $('calcTabIv').classList.toggle('on', which === 'iv');
+  $('calcTabSpec').classList.toggle('on', which === 'spec');
+}
+
+function openCalc(which) {
+  closeDetail(true);
+  setView('calc');
+  switchCalcTab(which);
+  $('mainMenu').hidden = true;
+  $('menuBtn').setAttribute('aria-expanded', 'false');
+}
+
+function initCalcViews() {
+  var ivHtml = '', spHtml = '';
+  for (var n = 1; n <= COMPARE_LIMIT; n++) ivHtml += ivSetHtml('ivc', n, 'Varianta');
+  for (var m = 1; m <= SPEC_LIMIT; m++) spHtml += ivSetHtml('spc', m, 'Jedinec');
+  $('ivCalcSets').innerHTML = ivHtml;
+  $('specSets').innerHTML = spHtml;
+  wireSetBox($('ivCalcSets'), 'ivc', COMPARE_LIMIT, $('ivCalcAdd'), runIvCalc);
+  wireSetBox($('specSets'), 'spc', SPEC_LIMIT, $('specAdd'), runSpecCalc);
+  $('ivCalcPick').addEventListener('input', function () {
+    ivCalcSpecies = pickByName(this.value);
+    runIvCalc();
+  });
+  $('specPick').addEventListener('input', onSpecPick);
+  $('calcTabIv').addEventListener('click', function () { switchCalcTab('iv'); });
+  $('calcTabSpec').addEventListener('click', function () { switchCalcTab('spec'); });
+  $('menuIv').addEventListener('click', function () { openCalc('iv'); });
+  $('menuSpec').addEventListener('click', function () { openCalc('spec'); });
+  $('menuBtn').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var menu = $('mainMenu'), open = menu.hidden;
+    menu.hidden = !open;
+    this.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', function (e) {
+    var menu = $('mainMenu');
+    if (!menu.hidden && !menu.contains(e.target)) {
+      menu.hidden = true;
+      $('menuBtn').setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      $('mainMenu').hidden = true;
+      $('menuBtn').setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+
 function initUi() {
   var th = null; try { th = localStorage.getItem(THEME_KEY); } catch (e) {}
   var ICON = { '': '🌓', dark: '🌙', light: '☀️' };
@@ -1536,6 +1843,7 @@ function initUi() {
   $('cmpA').addEventListener('input', renderCmp);
   $('cmpB').addEventListener('input', renderCmp);
   renderCmp();
+  initCalcViews();
   if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(function () {});
 }
 
@@ -1597,5 +1905,5 @@ if (typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { CPM: CPM, cpFor: cpFor, productFor: productFor, bestLevel: bestLevel, rankAllIVs: rankAllIVs, rankOfIV: rankOfIV, compareIVs: compareIVs, compareForPokemon: compareForPokemon, rankedListFor: rankedListFor, COMPARE_LIMIT: COMPARE_LIMIT, buildPveMap: buildPveMap, pveLookup: pveLookup, bestRaidSet: bestRaidSet, computeRaidMax: computeRaidMax, raidBlockHtml: raidBlockHtml, starsInfo: starsInfo, _setData: function (d) { pokemon = d.pokemon || []; moveData = d.moveData || {}; moveNames = d.moveNames || {}; pveFast = d.pveFast || {}; pveCharged = d.pveCharged || {}; raidCache = {}; raidMax = null; } };
+  module.exports = { CPM: CPM, cpFor: cpFor, productFor: productFor, bestLevel: bestLevel, rankAllIVs: rankAllIVs, rankOfIV: rankOfIV, compareIVs: compareIVs, compareForPokemon: compareForPokemon, rankedListFor: rankedListFor, specimenMatrix: specimenMatrix, resolveStageEntries: resolveStageEntries, COMPARE_LIMIT: COMPARE_LIMIT, buildPveMap: buildPveMap, pveLookup: pveLookup, bestRaidSet: bestRaidSet, computeRaidMax: computeRaidMax, raidBlockHtml: raidBlockHtml, starsInfo: starsInfo, _setData: function (d) { pokemon = d.pokemon || []; moveData = d.moveData || {}; moveNames = d.moveNames || {}; pveFast = d.pveFast || {}; pveCharged = d.pveCharged || {}; raidCache = {}; raidMax = null; } };
 }
